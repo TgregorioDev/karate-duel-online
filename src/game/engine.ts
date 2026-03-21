@@ -1,5 +1,5 @@
 import {
-  Fighter, GameState, InputState, FighterState,
+  Fighter, GameState, InputState,
   CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
   FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE,
   STAMINA_MAX, STAMINA_REGEN, PUNCH_COST, KICK_COST,
