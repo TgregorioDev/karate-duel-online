@@ -60,412 +60,720 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
 }
 
 function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: string) {
-  const { x, y, facing, state: fState, accentColor, beltColor } = fighter;
+  const { x, y, facing, state: fState, accentColor } = fighter;
 
   ctx.save();
   ctx.translate(x, y);
   if (facing === 'left') ctx.scale(-1, 1);
 
-  const bodyOffsetY = fState === 'hit' ? -5 : 0;
-  const bobY = fState === 'idle' ? Math.sin(Date.now() / 300) * 2 : 0;
-  const oY = bodyOffsetY + bobY;
+  const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 4 : 0;
+  const bobY = fState === 'idle' ? Math.sin(Date.now() / 300) * 1.5 : 0;
+  const oY = (fState === 'hit' ? -3 : 0) + bobY + hitShake;
+
   const skin = '#e2b88a';
   const skinDark = '#c9985e';
-  const giWhite = fState === 'hit' ? '#ffaaaa' : '#f0ede6';
-  const giShadow = fState === 'hit' ? '#e08888' : '#d8d4ca';
-  const giDark = fState === 'hit' ? '#cc7777' : '#c5c0b5';
-  const belt = '#111';
-  const beltKnot = '#222';
+  const skinLight = '#f0d4a8';
+  const giMain = fState === 'hit' ? '#ffaaaa' : '#f0ede6';
+  const giShade = fState === 'hit' ? '#e08888' : '#d8d4ca';
+  const giFold = fState === 'hit' ? '#cc7777' : '#c0bbb0';
+  const beltCol = '#1a1a1a';
+  const beltShade = '#0a0a0a';
 
   // Ground shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath();
-  ctx.ellipse(0, GROUND_Y - y + 4, 35, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, GROUND_Y - y + 4, 42, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // === FEET (bare) ===
-  if (fState === 'kick') {
-    // Standing foot
-    ctx.fillStyle = skinDark;
-    drawRoundedRect(ctx, -10, 30 + oY, 16, 8, 3);
-    ctx.fill();
-    // Kicking foot extended
-    ctx.fillStyle = skin;
-    drawRoundedRect(ctx, 40, -28 + oY, 18, 8, 3);
-    ctx.fill();
-  } else {
-    ctx.fillStyle = skinDark;
-    const walkOff = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 100) * 6 : 0;
-    drawRoundedRect(ctx, -10 + walkOff, 30 + oY, 16, 8, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, 2 - walkOff, 30 + oY, 16, 8, 3);
-    ctx.fill();
-  }
+  // ============ STANCE-BASED DRAWING ============
+  // The key insight from the reference: wide zenkutsu-dachi stance
+  // Front leg bent, back leg extended, torso upright, weight centered
 
-  // === LEGS (gi pants - hakama style, wide) ===
-  ctx.fillStyle = giWhite;
-  if (fState === 'kick') {
-    // Kicking leg - extended horizontal
+  if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
+    const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) : 0;
+    const legSpread = 18 + walkPhase * 5;
+
+    // === BACK LEG (straight, extended behind) ===
+    // Foot
+    ctx.fillStyle = skinDark;
     ctx.beginPath();
-    ctx.moveTo(5, -14 + oY);
-    ctx.lineTo(45, -34 + oY);
-    ctx.lineTo(45, -22 + oY);
-    ctx.lineTo(5, 0 + oY);
+    ctx.ellipse(-legSpread - 4, 34 + oY, 10, 4, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    // Calf + thigh as one angled gi pant
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-8, -10 + oY);       // hip
+    ctx.lineTo(-legSpread - 10, 30 + oY); // outer ankle
+    ctx.lineTo(-legSpread + 6, 30 + oY);  // inner ankle
+    ctx.lineTo(0, -10 + oY);        // inner hip
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = giShadow;
+    // Pant fold
+    ctx.strokeStyle = giFold;
+    ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(5, -5 + oY);
-    ctx.lineTo(5, 0 + oY);
-    ctx.lineTo(45, -22 + oY);
-    ctx.lineTo(45, -26 + oY);
+    ctx.moveTo(-4, -5 + oY);
+    ctx.quadraticCurveTo(-legSpread * 0.5, 10 + oY, -legSpread - 2, 28 + oY);
+    ctx.stroke();
+
+    // === FRONT LEG (bent knee, forward) ===
+    // Foot
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(legSpread + 2, 34 + oY, 10, 4, -0.1, 0, Math.PI * 2);
+    ctx.fill();
+    // Thigh going forward-down to knee
+    const kneeX = legSpread * 0.6;
+    const kneeY = 10 + oY;
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(2, -10 + oY);       // hip
+    ctx.lineTo(kneeX - 6, kneeY);   // outer knee
+    ctx.lineTo(kneeX + 8, kneeY);   // inner knee
+    ctx.lineTo(10, -10 + oY);       // inner hip
     ctx.closePath();
     ctx.fill();
-    // Standing leg
-    ctx.fillStyle = giWhite;
+    // Shin from knee down
     ctx.beginPath();
-    ctx.moveTo(-14, -14 + oY);
-    ctx.lineTo(-14, 30 + oY);
-    ctx.lineTo(8, 30 + oY);
-    ctx.lineTo(8, -14 + oY);
+    ctx.moveTo(kneeX - 6, kneeY);
+    ctx.lineTo(legSpread - 4, 30 + oY);
+    ctx.lineTo(legSpread + 10, 30 + oY);
+    ctx.lineTo(kneeX + 8, kneeY);
     ctx.closePath();
     ctx.fill();
-  } else {
-    const walkOff = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 100) * 6 : 0;
-    // Left pant leg (wide bottom like gi)
+    // Knee detail
+    ctx.strokeStyle = giFold;
+    ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(-14, -14 + oY);
-    ctx.lineTo(-16 + walkOff, 30 + oY);
-    ctx.lineTo(6 + walkOff, 30 + oY);
-    ctx.lineTo(2, -14 + oY);
+    ctx.moveTo(kneeX, kneeY - 2);
+    ctx.quadraticCurveTo(kneeX + 2, kneeY + 4, legSpread + 3, 28 + oY);
+    ctx.stroke();
+
+    // === TORSO ===
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // === ARMS (fighting stance like reference) ===
+    // BACK ARM - hikite at hip, fist pulled back
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-16, -62 + oY);  // shoulder
+    ctx.lineTo(-22, -42 + oY);  // elbow area
+    ctx.lineTo(-18, -28 + oY);  // near belt
+    ctx.lineTo(-8, -28 + oY);
+    ctx.lineTo(-12, -42 + oY);
+    ctx.lineTo(-8, -56 + oY);
     ctx.closePath();
     ctx.fill();
-    // Right pant leg
+    // Fist at hip
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, -18, -26 + oY, 0);
+
+    // FRONT ARM - guard up, forearm raised, fist at face height
+    ctx.fillStyle = giMain;
     ctx.beginPath();
-    ctx.moveTo(0, -14 + oY);
-    ctx.lineTo(-2 - walkOff, 30 + oY);
-    ctx.lineTo(18 - walkOff, 30 + oY);
-    ctx.lineTo(14, -14 + oY);
+    ctx.moveTo(16, -62 + oY);   // shoulder
+    ctx.lineTo(24, -52 + oY);   // upper arm going forward
+    ctx.lineTo(22, -46 + oY);
+    ctx.lineTo(14, -54 + oY);
     ctx.closePath();
     ctx.fill();
-    // Pant fold line
-    ctx.strokeStyle = giDark;
+    // Forearm going up
+    ctx.fillStyle = skin;
+    ctx.save();
+    ctx.translate(23, -50 + oY);
+    ctx.rotate(-1.2);
+    drawRoundedRect(ctx, 0, -3, 22, 8, 3);
+    ctx.fill();
+    ctx.restore();
+    // Fist raised
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, 30, -72 + oY, -0.3);
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+
+  } else if (fState === 'punch') {
+    // PUNCH: front leg lunges, back leg pushes, arm extends
+    const legSpread = 22;
+
+    // Back leg (pushing, straight)
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(-legSpread - 2, 34 + oY, 10, 4, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10 + oY);
+    ctx.lineTo(-legSpread - 8, 30 + oY);
+    ctx.lineTo(-legSpread + 8, 30 + oY);
+    ctx.lineTo(2, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Front leg (lunging forward, bent)
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(legSpread + 6, 34 + oY, 10, 4, -0.1, 0, Math.PI * 2);
+    ctx.fill();
+    const kneeX = legSpread * 0.7;
+    const kneeY = 8 + oY;
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(4, -10 + oY);
+    ctx.lineTo(kneeX - 4, kneeY);
+    ctx.lineTo(kneeX + 10, kneeY);
+    ctx.lineTo(12, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(kneeX - 4, kneeY);
+    ctx.lineTo(legSpread, 30 + oY);
+    ctx.lineTo(legSpread + 14, 30 + oY);
+    ctx.lineTo(kneeX + 10, kneeY);
+    ctx.closePath();
+    ctx.fill();
+
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // BACK ARM - hikite pulled tight to hip
+    ctx.fillStyle = giMain;
+    drawRoundedRect(ctx, -24, -56 + oY, 14, 26, 3);
+    ctx.fill();
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, -20, -28 + oY, 0);
+
+    // FRONT ARM - fully extended gyaku-zuki
+    // Sleeve
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(16, -64 + oY);
+    ctx.lineTo(32, -60 + oY);
+    ctx.lineTo(32, -50 + oY);
+    ctx.lineTo(16, -48 + oY);
+    ctx.closePath();
+    ctx.fill();
+    // Extended forearm
+    ctx.fillStyle = skin;
+    ctx.fillRect(32, -59 + oY, 32, 9);
+    // Fist impact
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, 62, -58 + oY, 0);
+    // Wrist detail
+    ctx.strokeStyle = skinDark;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-5 + walkOff, 0 + oY);
-    ctx.lineTo(-4 + walkOff, 28 + oY);
+    ctx.moveTo(31, -55 + oY);
+    ctx.lineTo(33, -55 + oY);
+    ctx.stroke();
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+
+  } else if (fState === 'kick') {
+    // MAWASHI-GERI / side kick - standing on back leg, front leg extended high
+
+    // Standing leg (slightly bent)
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(-8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10 + oY);
+    ctx.lineTo(-16, 30 + oY);
+    ctx.lineTo(4, 30 + oY);
+    ctx.lineTo(6, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Kicking leg - extended horizontally
+    // Thigh
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(4, -12 + oY);
+    ctx.lineTo(20, -30 + oY);
+    ctx.lineTo(24, -20 + oY);
+    ctx.lineTo(10, -4 + oY);
+    ctx.closePath();
+    ctx.fill();
+    // Shin + foot extended
+    ctx.beginPath();
+    ctx.moveTo(20, -30 + oY);
+    ctx.lineTo(55, -34 + oY);
+    ctx.lineTo(55, -24 + oY);
+    ctx.lineTo(24, -20 + oY);
+    ctx.closePath();
+    ctx.fill();
+    // Bare foot
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.moveTo(55, -34 + oY);
+    ctx.lineTo(68, -32 + oY);
+    ctx.lineTo(68, -26 + oY);
+    ctx.lineTo(55, -24 + oY);
+    ctx.closePath();
+    ctx.fill();
+    // Toes
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(68, -29 + oY, 3, 5, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gi pant wrinkles on kicking leg
+    ctx.strokeStyle = giFold;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(12, -8 + oY);
+    ctx.quadraticCurveTo(30, -22 + oY, 50, -28 + oY);
+    ctx.stroke();
+
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // Arms in guard during kick
+    // Back arm
+    ctx.fillStyle = giMain;
+    drawRoundedRect(ctx, -24, -60 + oY, 14, 26, 3);
+    ctx.fill();
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, -20, -32 + oY, 0);
+    // Front arm guard
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(14, -64 + oY);
+    ctx.lineTo(22, -56 + oY);
+    ctx.lineTo(18, -44 + oY);
+    ctx.lineTo(10, -48 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = skin;
+    ctx.save();
+    ctx.translate(20, -50 + oY);
+    ctx.rotate(-0.8);
+    drawRoundedRect(ctx, 0, -3, 16, 7, 3);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, 28, -66 + oY, -0.4);
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+
+  } else if (fState === 'block') {
+    // Defensive stance - arms crossed/raised, weight back
+    const legSpread = 16;
+
+    // Back leg
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(-legSpread, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10 + oY);
+    ctx.lineTo(-legSpread - 8, 30 + oY);
+    ctx.lineTo(-legSpread + 8, 30 + oY);
+    ctx.lineTo(2, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Front leg
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(legSpread, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(2, -10 + oY);
+    ctx.lineTo(legSpread - 6, 30 + oY);
+    ctx.lineTo(legSpread + 10, 30 + oY);
+    ctx.lineTo(10, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // Arms in gedan-barai block (forearm crossing body)
+    // Both sleeves
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-14, -64 + oY);
+    ctx.lineTo(-6, -50 + oY);
+    ctx.lineTo(6, -66 + oY);
+    ctx.lineTo(14, -66 + oY);
+    ctx.lineTo(4, -44 + oY);
+    ctx.lineTo(-20, -58 + oY);
+    ctx.closePath();
+    ctx.fill();
+    // Forearms crossed
+    ctx.strokeStyle = skin;
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-10, -46 + oY);
+    ctx.lineTo(8, -70 + oY);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(7 - walkOff, 0 + oY);
-    ctx.lineTo(8 - walkOff, 28 + oY);
+    ctx.moveTo(14, -46 + oY);
+    ctx.lineTo(-4, -70 + oY);
     ctx.stroke();
+    ctx.lineCap = 'butt';
+    // Fists
+    ctx.fillStyle = skinDark;
+    drawFist(ctx, 4, -74 + oY, -0.5);
+    drawFist(ctx, -8, -74 + oY, 0.5);
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+
+  } else if (fState === 'hit') {
+    // Recoiling - leaning back, legs stumbling
+    const legSpread = 14;
+
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(-legSpread, 34 + oY, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(legSpread - 4, 34 + oY, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10 + oY);
+    ctx.lineTo(-legSpread - 6, 30 + oY);
+    ctx.lineTo(-legSpread + 6, 30 + oY);
+    ctx.lineTo(0, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -10 + oY);
+    ctx.lineTo(legSpread - 10, 30 + oY);
+    ctx.lineTo(legSpread + 4, 30 + oY);
+    ctx.lineTo(8, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // Arms flailing
+    ctx.fillStyle = giMain;
+    drawRoundedRect(ctx, -26, -62 + oY, 14, 22, 3);
+    ctx.fill();
+    drawRoundedRect(ctx, 14, -58 + oY, 14, 18, 3);
+    ctx.fill();
+    ctx.fillStyle = skin;
+    drawRoundedRect(ctx, -24, -42 + oY, 10, 8, 3);
+    ctx.fill();
+    drawRoundedRect(ctx, 16, -42 + oY, 10, 8, 3);
+    ctx.fill();
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+
+  } else if (fState === 'victory') {
+    // Standing tall, arms raised
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(-8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10 + oY);
+    ctx.lineTo(-14, 30 + oY);
+    ctx.lineTo(2, 30 + oY);
+    ctx.lineTo(2, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -10 + oY);
+    ctx.lineTo(0, 30 + oY);
+    ctx.lineTo(16, 30 + oY);
+    ctx.lineTo(8, -10 + oY);
+    ctx.closePath();
+    ctx.fill();
+
+    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+
+    // Arms raised in triumph
+    ctx.fillStyle = giMain;
+    ctx.beginPath();
+    ctx.moveTo(-14, -64 + oY);
+    ctx.lineTo(-24, -100 + oY);
+    ctx.lineTo(-12, -100 + oY);
+    ctx.lineTo(-4, -64 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(6, -64 + oY);
+    ctx.lineTo(14, -105 + oY);
+    ctx.lineTo(26, -105 + oY);
+    ctx.lineTo(16, -64 + oY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = skin;
+    drawFist(ctx, -22, -106 + oY, 0);
+    drawFist(ctx, 16, -111 + oY, 0);
+
+    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
   }
 
-  // === TORSO (gi jacket) ===
-  // Back of gi
-  ctx.fillStyle = giShadow;
-  drawRoundedRect(ctx, -20, -72 + oY, 40, 60, 3);
+  ctx.restore();
+}
+
+// === SHARED DRAWING HELPERS ===
+
+function drawTorso(ctx: CanvasRenderingContext2D, oY: number, giMain: string, giShade: string, giFold: string, beltCol: string, beltShade: string) {
+  // Torso base (gi jacket)
+  ctx.fillStyle = giShade;
+  drawRoundedRect(ctx, -20, -72 + oY, 42, 64, 4);
   ctx.fill();
-  // Front of gi
-  ctx.fillStyle = giWhite;
-  drawRoundedRect(ctx, -18, -72 + oY, 38, 58, 3);
+  ctx.fillStyle = giMain;
+  drawRoundedRect(ctx, -18, -72 + oY, 40, 62, 4);
   ctx.fill();
 
-  // Gi lapel (V-neck crossover)
-  ctx.fillStyle = giShadow;
+  // Gi lapel - cross-over V shape
+  ctx.fillStyle = giShade;
   ctx.beginPath();
-  ctx.moveTo(-12, -72 + oY);
-  ctx.lineTo(0, -40 + oY);
-  ctx.lineTo(14, -72 + oY);
+  ctx.moveTo(-10, -72 + oY);
+  ctx.lineTo(-2, -38 + oY);
+  ctx.lineTo(12, -72 + oY);
   ctx.lineTo(6, -72 + oY);
-  ctx.lineTo(0, -52 + oY);
-  ctx.lineTo(-6, -72 + oY);
+  ctx.lineTo(-2, -48 + oY);
+  ctx.lineTo(-4, -72 + oY);
   ctx.closePath();
   ctx.fill();
 
-  // Inner lapel line
-  ctx.strokeStyle = giDark;
-  ctx.lineWidth = 1.5;
+  // Lapel stitching
+  ctx.strokeStyle = giFold;
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(-8, -72 + oY);
-  ctx.lineTo(0, -46 + oY);
-  ctx.lineTo(10, -72 + oY);
+  ctx.moveTo(-7, -72 + oY);
+  ctx.lineTo(-2, -44 + oY);
+  ctx.lineTo(9, -72 + oY);
   ctx.stroke();
 
-  // Gi fold details on torso
-  ctx.strokeStyle = giDark;
-  ctx.lineWidth = 0.7;
+  // Fabric fold lines
+  ctx.strokeStyle = giFold;
+  ctx.lineWidth = 0.6;
   ctx.beginPath();
-  ctx.moveTo(-15, -50 + oY);
-  ctx.quadraticCurveTo(-10, -45 + oY, -5, -44 + oY);
+  ctx.moveTo(-16, -55 + oY);
+  ctx.quadraticCurveTo(-10, -48 + oY, -6, -46 + oY);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(18, -50 + oY);
-  ctx.quadraticCurveTo(12, -46 + oY, 6, -44 + oY);
+  ctx.moveTo(20, -55 + oY);
+  ctx.quadraticCurveTo(14, -49 + oY, 8, -46 + oY);
+  ctx.stroke();
+  // Side seam
+  ctx.beginPath();
+  ctx.moveTo(-18, -40 + oY);
+  ctx.lineTo(-18, -14 + oY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(20, -40 + oY);
+  ctx.lineTo(20, -14 + oY);
   ctx.stroke();
 
   // === BLACK BELT (obi) ===
-  ctx.fillStyle = belt;
-  ctx.fillRect(-22, -18 + oY, 44, 8);
-  // Belt texture lines
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 0.5;
-  ctx.beginPath();
-  ctx.moveTo(-22, -16 + oY);
-  ctx.lineTo(22, -16 + oY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-22, -12 + oY);
-  ctx.lineTo(22, -12 + oY);
-  ctx.stroke();
-  // Belt knot
-  ctx.fillStyle = beltKnot;
-  ctx.beginPath();
-  ctx.ellipse(2, -14 + oY, 5, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Belt tails hanging down
-  ctx.fillStyle = belt;
-  ctx.beginPath();
-  ctx.moveTo(-1, -10 + oY);
-  ctx.lineTo(-6, 6 + oY);
-  ctx.lineTo(-3, 6 + oY);
-  ctx.lineTo(2, -10 + oY);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(3, -10 + oY);
-  ctx.lineTo(8, 4 + oY);
-  ctx.lineTo(5, 4 + oY);
-  ctx.lineTo(0, -10 + oY);
-  ctx.closePath();
-  ctx.fill();
-
-  // === SLEEVES & ARMS ===
-  if (fState === 'punch') {
-    // Front arm - extended punch
-    // Sleeve
-    ctx.fillStyle = giWhite;
+  ctx.fillStyle = beltCol;
+  ctx.fillRect(-22, -16 + oY, 46, 9);
+  // Belt shading
+  ctx.fillStyle = beltShade;
+  ctx.fillRect(-22, -16 + oY, 46, 3);
+  // Belt texture
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 0.4;
+  for (let i = 0; i < 3; i++) {
     ctx.beginPath();
-    ctx.moveTo(14, -66 + oY);
-    ctx.lineTo(28, -62 + oY);
-    ctx.lineTo(28, -52 + oY);
-    ctx.lineTo(14, -48 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Forearm (skin)
-    ctx.fillStyle = skin;
-    ctx.fillRect(28, -60 + oY, 30, 10);
-    // Fist
-    ctx.fillStyle = skinDark;
-    drawRoundedRect(ctx, 56, -63 + oY, 14, 16, 4);
-    ctx.fill();
-    // Knuckle line
-    ctx.strokeStyle = '#b8854a';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(60, -62 + oY);
-    ctx.lineTo(60, -49 + oY);
+    ctx.moveTo(-22, -15 + i * 3 + oY);
+    ctx.lineTo(24, -15 + i * 3 + oY);
     ctx.stroke();
-
-    // Back arm tucked at hip
-    ctx.fillStyle = giWhite;
-    drawRoundedRect(ctx, -26, -60 + oY, 14, 22, 3);
-    ctx.fill();
-    ctx.fillStyle = skin;
-    drawRoundedRect(ctx, -24, -40 + oY, 10, 8, 3);
-    ctx.fill();
-  } else if (fState === 'block') {
-    // Both arms raised in gedan-barai / age-uke
-    ctx.fillStyle = giWhite;
-    // Left sleeve
-    drawRoundedRect(ctx, -22, -68 + oY, 16, 20, 3);
-    ctx.fill();
-    // Right sleeve
-    drawRoundedRect(ctx, 8, -68 + oY, 16, 20, 3);
-    ctx.fill();
-    // Forearms crossed
-    ctx.fillStyle = skin;
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = skin;
-    ctx.beginPath();
-    ctx.moveTo(-14, -48 + oY);
-    ctx.lineTo(4, -68 + oY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(16, -48 + oY);
-    ctx.lineTo(-2, -68 + oY);
-    ctx.stroke();
-    // Fists
-    ctx.fillStyle = skinDark;
-    drawRoundedRect(ctx, -2, -73 + oY, 10, 10, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, -6, -73 + oY, 10, 10, 3);
-    ctx.fill();
-  } else if (fState === 'kick') {
-    // Arms in guard position during kick
-    ctx.fillStyle = giWhite;
-    drawRoundedRect(ctx, 10, -66 + oY, 14, 24, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, -22, -62 + oY, 14, 20, 3);
-    ctx.fill();
-    ctx.fillStyle = skin;
-    drawRoundedRect(ctx, 12, -44 + oY, 10, 8, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, -20, -44 + oY, 10, 8, 3);
-    ctx.fill();
-  } else if (fState === 'victory') {
-    // Arms raised in victory
-    ctx.fillStyle = giWhite;
-    // Left sleeve going up
-    ctx.beginPath();
-    ctx.moveTo(-16, -68 + oY);
-    ctx.lineTo(-22, -95 + oY);
-    ctx.lineTo(-10, -95 + oY);
-    ctx.lineTo(-4, -68 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Right sleeve going up
-    ctx.beginPath();
-    ctx.moveTo(6, -68 + oY);
-    ctx.lineTo(12, -100 + oY);
-    ctx.lineTo(24, -100 + oY);
-    ctx.lineTo(18, -68 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Hands
-    ctx.fillStyle = skin;
-    drawRoundedRect(ctx, -24, -102 + oY, 14, 10, 4);
-    ctx.fill();
-    drawRoundedRect(ctx, 12, -108 + oY, 14, 10, 4);
-    ctx.fill();
-  } else {
-    // Karate fighting stance (zenkutsu-dachi inspired)
-    // Front arm - guard up
-    ctx.fillStyle = giWhite;
-    ctx.beginPath();
-    ctx.moveTo(14, -66 + oY);
-    ctx.lineTo(24, -64 + oY);
-    ctx.lineTo(24, -50 + oY);
-    ctx.lineTo(14, -48 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Forearm angled up
-    ctx.fillStyle = skin;
-    ctx.save();
-    ctx.translate(24, -56 + oY);
-    ctx.rotate(-0.6);
-    ctx.fillRect(0, -4, 20, 8);
-    ctx.restore();
-    // Front fist
-    ctx.fillStyle = skinDark;
-    drawRoundedRect(ctx, 36, -70 + oY, 11, 12, 4);
-    ctx.fill();
-
-    // Back arm - at hip (hikite)
-    ctx.fillStyle = giWhite;
-    drawRoundedRect(ctx, -24, -62 + oY, 14, 22, 3);
-    ctx.fill();
-    ctx.fillStyle = skinDark;
-    drawRoundedRect(ctx, -22, -42 + oY, 10, 10, 3);
-    ctx.fill();
   }
+  // Knot
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.ellipse(4, -11 + oY, 6, 4, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = beltCol;
+  ctx.beginPath();
+  ctx.ellipse(4, -11 + oY, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Belt tails
+  ctx.fillStyle = beltCol;
+  ctx.beginPath();
+  ctx.moveTo(1, -7 + oY);
+  ctx.lineTo(-4, 10 + oY);
+  ctx.lineTo(-1, 10 + oY);
+  ctx.lineTo(4, -7 + oY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(5, -7 + oY);
+  ctx.lineTo(12, 8 + oY);
+  ctx.lineTo(9, 8 + oY);
+  ctx.lineTo(2, -7 + oY);
+  ctx.closePath();
+  ctx.fill();
+}
 
-  // === HEAD ===
+function drawHead(ctx: CanvasRenderingContext2D, oY: number, fState: string, skin: string, skinDark: string, skinLight: string, accentColor: string) {
   // Neck
   ctx.fillStyle = skin;
-  ctx.fillRect(-5, -76 + oY, 10, 8);
+  ctx.fillRect(-4, -76 + oY, 10, 8);
+  // Neck shadow
+  ctx.fillStyle = skinDark;
+  ctx.fillRect(-4, -72 + oY, 10, 3);
 
-  // Head shape
+  // Head
   ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.ellipse(0, -88 + oY, 15, 17, 0, 0, Math.PI * 2);
+  ctx.ellipse(1, -88 + oY, 14, 16, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Hair (short, dark)
+  // Jaw/chin definition
+  ctx.fillStyle = skinDark;
+  ctx.beginPath();
+  ctx.ellipse(1, -78 + oY, 10, 5, 0, 0.2, Math.PI - 0.2);
+  ctx.fill();
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(1, -79 + oY, 10, 5, 0, 0.2, Math.PI - 0.2);
+  ctx.fill();
+
+  // Hair
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.ellipse(0, -92 + oY, 15, 13, 0, Math.PI, 0);
+  ctx.ellipse(1, -93 + oY, 15, 12, 0, Math.PI + 0.3, -0.3);
   ctx.fill();
-  // Side hair
-  ctx.fillRect(-15, -92 + oY, 4, 10);
-  ctx.fillRect(11, -92 + oY, 4, 10);
+  // Side burns
+  ctx.fillRect(-13, -93 + oY, 4, 12);
+  ctx.fillRect(11, -93 + oY, 4, 12);
+  // Hair top volume
+  ctx.beginPath();
+  ctx.ellipse(1, -96 + oY, 12, 6, 0, Math.PI, 0);
+  ctx.fill();
 
   // Ears
   ctx.fillStyle = skinDark;
   ctx.beginPath();
-  ctx.ellipse(-15, -87 + oY, 4, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(-13, -87 + oY, 3, 5, 0, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = skinLight;
   ctx.beginPath();
-  ctx.ellipse(15, -87 + oY, 4, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(-13, -87 + oY, 2, 3, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Eyes
   ctx.fillStyle = '#fff';
-  drawRoundedRect(ctx, -9, -91 + oY, 8, 5, 2);
+  drawRoundedRect(ctx, -7, -91 + oY, 7, 5, 2);
   ctx.fill();
-  drawRoundedRect(ctx, 2, -91 + oY, 8, 5, 2);
+  drawRoundedRect(ctx, 3, -91 + oY, 7, 5, 2);
   ctx.fill();
-  // Pupils
+  // Iris
+  ctx.fillStyle = '#3a2a1a';
+  ctx.beginPath();
+  ctx.arc(-3, -88 + oY, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(7, -88 + oY, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Pupil
   ctx.fillStyle = '#111';
   ctx.beginPath();
-  ctx.arc(-4, -88 + oY, 2, 0, Math.PI * 2);
+  ctx.arc(-3, -88 + oY, 1.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(7, -88 + oY, 2, 0, Math.PI * 2);
+  ctx.arc(7, -88 + oY, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Eye highlight
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(-2, -89 + oY, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(8, -89 + oY, 0.8, 0, Math.PI * 2);
   ctx.fill();
 
   // Eyebrows
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.moveTo(-10, -94 + oY);
-  ctx.lineTo(-2, -93 + oY);
+  ctx.moveTo(-8, -94 + oY);
+  ctx.quadraticCurveTo(-4, -96 + oY, 0, -94 + oY);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(3, -93 + oY);
-  ctx.lineTo(11, -94 + oY);
+  ctx.moveTo(3, -94 + oY);
+  ctx.quadraticCurveTo(6, -96 + oY, 10, -94 + oY);
+  ctx.stroke();
+
+  // Nose
+  ctx.strokeStyle = skinDark;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(2, -86 + oY);
+  ctx.lineTo(3, -82 + oY);
+  ctx.lineTo(1, -81 + oY);
   ctx.stroke();
 
   // Mouth
   if (fState === 'hit') {
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#6b3a2a';
     ctx.beginPath();
-    ctx.arc(1, -80 + oY, 4, 0, Math.PI);
-    ctx.stroke();
+    ctx.ellipse(2, -78 + oY, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, -79 + oY, 4, 2);
   } else if (fState === 'punch' || fState === 'kick') {
-    ctx.fillStyle = '#8b4513';
+    ctx.fillStyle = '#6b3a2a';
     ctx.beginPath();
-    ctx.ellipse(1, -80 + oY, 3, 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, -78 + oY, 3, 2, 0, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    ctx.strokeStyle = '#8b4513';
+    ctx.strokeStyle = '#8b5a4a';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(-3, -80 + oY);
-    ctx.lineTo(5, -80 + oY);
+    ctx.moveTo(-1, -78 + oY);
+    ctx.quadraticCurveTo(2, -77 + oY, 5, -78 + oY);
     ctx.stroke();
   }
 
-  // === ACCENT INDICATOR (colored headband / hachimaki) ===
+  // Headband (hachimaki) - team color identifier
   ctx.fillStyle = accentColor;
-  ctx.fillRect(-16, -96 + oY, 32, 4);
-  // Headband tails
   ctx.beginPath();
-  ctx.moveTo(-16, -96 + oY);
-  ctx.lineTo(-24, -90 + oY);
-  ctx.lineTo(-22, -92 + oY);
-  ctx.lineTo(-16, -92 + oY);
+  ctx.moveTo(-14, -97 + oY);
+  ctx.lineTo(16, -97 + oY);
+  ctx.lineTo(16, -93 + oY);
+  ctx.lineTo(-14, -93 + oY);
+  ctx.closePath();
+  ctx.fill();
+  // Headband tails flowing behind
+  ctx.beginPath();
+  ctx.moveTo(-14, -97 + oY);
+  ctx.quadraticCurveTo(-22, -95 + oY, -26, -89 + oY);
+  ctx.lineTo(-24, -91 + oY);
+  ctx.quadraticCurveTo(-20, -95 + oY, -14, -93 + oY);
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(-16, -96 + oY);
+  ctx.moveTo(-14, -97 + oY);
+  ctx.quadraticCurveTo(-24, -93 + oY, -30, -86 + oY);
   ctx.lineTo(-28, -88 + oY);
-  ctx.lineTo(-26, -86 + oY);
-  ctx.lineTo(-16, -92 + oY);
+  ctx.quadraticCurveTo(-22, -93 + oY, -14, -93 + oY);
   ctx.closePath();
   ctx.fill();
+}
 
+function drawFist(ctx: CanvasRenderingContext2D, fx: number, fy: number, angle: number) {
+  ctx.save();
+  ctx.translate(fx, fy);
+  ctx.rotate(angle);
+  drawRoundedRect(ctx, 0, 0, 12, 12, 4);
+  ctx.fill();
+  // Knuckle line
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(3, 1);
+  ctx.lineTo(3, 11);
+  ctx.stroke();
   ctx.restore();
 }
 
