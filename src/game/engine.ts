@@ -17,8 +17,8 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
 
 export function createInitialState(): GameState {
   return {
-    player: createFighter(280, 'right', '#1a3a6a', '#4488ff', '#4488ff'),
-    opponent: createFighter(680, 'left', '#6a1a1a', '#ff4444', '#222'),
+    player: createFighter(280, 'right', '#1a3a6a', '#4488ff', '#111'),
+    opponent: createFighter(680, 'left', '#6a1a1a', '#ff4444', '#111'),
     timeRemaining: FIGHT_DURATION,
     gameStatus: 'menu',
     pointScoredBy: null,
