@@ -80,13 +80,13 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   ctx.ellipse(0, 4, 42, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body part lengths (realistic proportions)
-  const thighLen = 36;
-  const shinLen = 34;
-  const torsoLen = 42;
-  const upperArmLen = 22;
-  const forearmLen = 20;
-  const headR = 13;
+  // Body part lengths (athletic proportions)
+  const thighLen = 38;
+  const shinLen = 36;
+  const torsoLen = 44;
+  const upperArmLen = 24;
+  const forearmLen = 22;
+  const headR = 12;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
     const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) * 0.15 : 0;
