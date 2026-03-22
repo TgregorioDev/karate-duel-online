@@ -731,24 +731,6 @@ function drawHeadNew(
     ctx.stroke();
   }
 
-  // Hachimaki (headband) - team identifier
-  ctx.fillStyle = accentColor;
-  const bandY = headY - headR + 2;
-  ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, bandY);
-  ctx.lineTo(headX + headR + 1, bandY);
-  ctx.lineTo(headX + headR + 1, bandY + 4);
-  ctx.lineTo(headX - headR - 1, bandY + 4);
-  ctx.closePath();
-  ctx.fill();
-  // Tails
-  ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, bandY);
-  ctx.quadraticCurveTo(headX - headR - 10, bandY + 4, headX - headR - 14, bandY + 10);
-  ctx.lineTo(headX - headR - 12, bandY + 12);
-  ctx.quadraticCurveTo(headX - headR - 8, bandY + 4, headX - headR - 1, bandY + 4);
-  ctx.closePath();
-  ctx.fill();
 }
 
 // ============ HUD, EFFECTS, MENUS (unchanged) ============
