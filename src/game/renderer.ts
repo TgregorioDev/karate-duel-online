@@ -72,6 +72,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const giShade = fState === 'hit' ? '#e08888' : '#d8d4ca';
   const giFold = fState === 'hit' ? '#cc7777' : '#c0bbb0';
   const beltCol = '#1a1a1a';
+  const gloveCol = accentColor;
 
   // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
@@ -79,13 +80,13 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   ctx.ellipse(0, 4, 42, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body part lengths (realistic proportions)
-  const thighLen = 36;
-  const shinLen = 34;
-  const torsoLen = 42;
-  const upperArmLen = 22;
-  const forearmLen = 20;
-  const headR = 13;
+  // Body part lengths (athletic proportions)
+  const thighLen = 38;
+  const shinLen = 36;
+  const torsoLen = 44;
+  const upperArmLen = 24;
+  const forearmLen = 22;
+  const headR = 12;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
     const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) * 0.15 : 0;
@@ -123,7 +124,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backElbowY = shoulderY + 18;
     const backFistX = backShoulderX - 2;
     const backFistY = hipY + 2;
-    drawArm(ctx, backShoulderX, shoulderY + 4, backElbowX, backElbowY, backFistX, backFistY, giMain, skin, skinDark, false);
+    drawArm(ctx, backShoulderX, shoulderY + 4, backElbowX, backElbowY, backFistX, backFistY, giMain, skin, skinDark, false, gloveCol);
 
     // Front arm - guard up at chest/chin height
     const frontShoulderX = shoulderX + 14;
@@ -131,7 +132,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const frontElbowY = shoulderY + 16;
     const frontFistX = frontShoulderX + 8;
     const frontFistY = shoulderY + 4;
-    drawArm(ctx, frontShoulderX, shoulderY + 4, frontElbowX, frontElbowY, frontFistX, frontFistY, giMain, skin, skinDark, true);
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontElbowX, frontElbowY, frontFistX, frontFistY, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
@@ -160,7 +161,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
     // HIKITE arm - pulled back tight to hip
     const backShoulderX = shoulderX - 14;
-    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinDark, false);
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinDark, false, gloveCol);
 
     // PUNCH arm - fully extended forward, straight line from shoulder to fist
     const frontShoulderX = shoulderX + 14;
@@ -169,7 +170,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const punchElbowY = shoulderY + 6;
     const punchFistX = frontShoulderX + punchReach;
     const punchFistY = shoulderY + 8;
-    drawArm(ctx, frontShoulderX, shoulderY + 4, punchElbowX, punchElbowY, punchFistX, punchFistY, giMain, skin, skinDark, true);
+    drawArm(ctx, frontShoulderX, shoulderY + 4, punchElbowX, punchElbowY, punchFistX, punchFistY, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
@@ -201,10 +202,10 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
     // Arms - both in guard position, slightly back for balance
     const backShoulderX = shoulderX - 14;
-    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 16, backShoulderX - 4, hipY, giMain, skin, skinDark, false);
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 16, backShoulderX - 4, hipY, giMain, skin, skinDark, false, gloveCol);
 
     const frontShoulderX = shoulderX + 14;
-    drawArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 6, shoulderY + 14, frontShoulderX + 2, shoulderY + 4, giMain, skin, skinDark, true);
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 6, shoulderY + 14, frontShoulderX + 2, shoulderY + 4, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
@@ -230,9 +231,9 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const ls = shoulderX - 14;
     const rs = shoulderX + 14;
     // Left arm crosses up
-    drawArm(ctx, ls, shoulderY + 4, ls + 8, shoulderY + 10, shoulderX + 4, shoulderY - 8, giMain, skin, skinDark, false);
+    drawArm(ctx, ls, shoulderY + 4, ls + 8, shoulderY + 10, shoulderX + 4, shoulderY - 8, giMain, skin, skinDark, false, gloveCol);
     // Right arm crosses up
-    drawArm(ctx, rs, shoulderY + 4, rs - 4, shoulderY + 10, shoulderX - 2, shoulderY - 6, giMain, skin, skinDark, true);
+    drawArm(ctx, rs, shoulderY + 4, rs - 4, shoulderY + 10, shoulderX - 2, shoulderY - 6, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
@@ -255,8 +256,8 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
     // Arms flailing
-    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 22, shoulderY + 14, shoulderX - 18, shoulderY + 24, giMain, skin, skinDark, false);
-    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 20, shoulderY + 12, shoulderX + 16, shoulderY + 22, giMain, skin, skinDark, false);
+    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 22, shoulderY + 14, shoulderX - 18, shoulderY + 24, giMain, skin, skinDark, false, gloveCol);
+    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 20, shoulderY + 12, shoulderX + 16, shoulderY + 22, giMain, skin, skinDark, false, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
@@ -271,8 +272,8 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
     // Arms raised in victory
-    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 20, shoulderY - 20, shoulderX - 16, shoulderY - 36, giMain, skin, skinDark, true);
-    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 22, shoulderY - 22, shoulderX + 18, shoulderY - 38, giMain, skin, skinDark, true);
+    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 20, shoulderY - 20, shoulderX - 16, shoulderY - 36, giMain, skin, skinDark, true, gloveCol);
+    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 22, shoulderY - 22, shoulderX + 18, shoulderY - 38, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
   }
@@ -422,7 +423,8 @@ function drawArm(
   elbowX: number, elbowY: number,
   fistX: number, fistY: number,
   giCol: string, skinCol: string, skinDarkCol: string,
-  isFist: boolean
+  isFist: boolean,
+  gloveColor?: string
 ) {
   const armW = 9;
 
@@ -453,17 +455,38 @@ function drawArm(
   ctx.closePath();
   ctx.fill();
 
-  // Fist
-  ctx.fillStyle = skinDarkCol;
-  ctx.beginPath();
-  ctx.arc(fistX, fistY, isFist ? 6 : 5, 0, Math.PI * 2);
-  ctx.fill();
-  // Knuckle highlight
-  if (isFist) {
-    ctx.fillStyle = skinCol;
+  // Glove (colored)
+  if (gloveColor) {
+    const gloveR = isFist ? 7 : 6;
+    // Main glove shape
+    ctx.fillStyle = gloveColor;
     ctx.beginPath();
-    ctx.arc(fistX + Math.cos(fAngle) * 2, fistY + Math.sin(fAngle) * 2, 3, 0, Math.PI * 2);
+    ctx.arc(fistX, fistY, gloveR, 0, Math.PI * 2);
     ctx.fill();
+    // Glove highlight
+    const lighter = gloveColor === '#cc2222' ? '#ee4444' : '#4488ee';
+    ctx.fillStyle = lighter;
+    ctx.beginPath();
+    ctx.arc(fistX - 1, fistY - 2, gloveR * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    // Glove wrist strap
+    const wristX = fistX - Math.cos(fAngle) * (gloveR + 1);
+    const wristY = fistY - Math.sin(fAngle) * (gloveR + 1);
+    ctx.fillStyle = gloveColor === '#cc2222' ? '#991111' : '#1a3366';
+    ctx.beginPath();
+    ctx.arc(wristX, wristY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = skinDarkCol;
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, isFist ? 6 : 5, 0, Math.PI * 2);
+    ctx.fill();
+    if (isFist) {
+      ctx.fillStyle = skinCol;
+      ctx.beginPath();
+      ctx.arc(fistX + Math.cos(fAngle) * 2, fistY + Math.sin(fAngle) * 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -709,24 +732,6 @@ function drawHeadNew(
     ctx.stroke();
   }
 
-  // Hachimaki (headband) - team identifier
-  ctx.fillStyle = accentColor;
-  const bandY = headY - headR + 2;
-  ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, bandY);
-  ctx.lineTo(headX + headR + 1, bandY);
-  ctx.lineTo(headX + headR + 1, bandY + 4);
-  ctx.lineTo(headX - headR - 1, bandY + 4);
-  ctx.closePath();
-  ctx.fill();
-  // Tails
-  ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, bandY);
-  ctx.quadraticCurveTo(headX - headR - 10, bandY + 4, headX - headR - 14, bandY + 10);
-  ctx.lineTo(headX - headR - 12, bandY + 12);
-  ctx.quadraticCurveTo(headX - headR - 8, bandY + 4, headX - headR - 1, bandY + 4);
-  ctx.closePath();
-  ctx.fill();
 }
 
 // ============ HUD, EFFECTS, MENUS (unchanged) ============
