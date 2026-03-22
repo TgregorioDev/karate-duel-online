@@ -210,30 +210,38 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'block') {
-    // AGE-UKE / GEDAN-BARAI defensive stance
-    const hipY = -42 + bobY;
+    // UCHI UKE - inside forearm block
+    // Deep Zenkutsu-dachi, blocking arm sweeps across body, hikite on opposite hip
+    const hipY = -40 + bobY;
     
-    const backFootX = -18;
-    const backKneeX = -10;
-    const backKneeY = hipY + 18;
-    const frontFootX = 16;
-    const frontKneeX = 12;
-    const frontKneeY = hipY + 16;
+    // Wide Zenkutsu-dachi stance (like in reference image)
+    const backFootX = -28;
+    const backKneeX = -16;
+    const backKneeY = hipY + 20;
+    const frontFootX = 24;
+    const frontKneeX = 20;
+    const frontKneeY = hipY + 14;
 
     drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinDark, 12);
     drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinDark, 12);
 
+    // Torso - rotated into the block (hip rotation visible)
     const shoulderY = hipY - torsoLen;
-    const shoulderX = 0;
+    const shoulderX = 2;
     drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Blocking arms - crossed forearms in front of face
-    const ls = shoulderX - 14;
-    const rs = shoulderX + 14;
-    // Left arm crosses up
-    drawArm(ctx, ls, shoulderY + 4, ls + 8, shoulderY + 10, shoulderX + 4, shoulderY - 8, giMain, skin, skinDark, false, gloveCol);
-    // Right arm crosses up
-    drawArm(ctx, rs, shoulderY + 4, rs - 4, shoulderY + 10, shoulderX - 2, shoulderY - 6, giMain, skin, skinDark, true, gloveCol);
+    // HIKITE arm - pulled back tight to hip (back arm)
+    const backShoulderX = shoulderX - 14;
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinDark, true, gloveCol);
+
+    // UCHI UKE blocking arm - forearm raised vertically across chest
+    // Elbow at ribcage height, fist up near opposite shoulder (forearm vertical)
+    const frontShoulderX = shoulderX + 14;
+    const blockElbowX = frontShoulderX + 4;
+    const blockElbowY = shoulderY + 18;
+    const blockFistX = frontShoulderX - 2;
+    const blockFistY = shoulderY - 2;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, blockElbowX, blockElbowY, blockFistX, blockFistY, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
