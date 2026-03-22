@@ -72,6 +72,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const giShade = fState === 'hit' ? '#e08888' : '#d8d4ca';
   const giFold = fState === 'hit' ? '#cc7777' : '#c0bbb0';
   const beltCol = '#1a1a1a';
+  const gloveCol = accentColor;
 
   // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
