@@ -13,7 +13,6 @@ export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D) {
-  // Dojo background
   const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
   grad.addColorStop(0, '#1a0a0a');
   grad.addColorStop(0.6, '#2a1515');
@@ -21,11 +20,9 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  // Tatami floor
   ctx.fillStyle = '#8B7355';
   ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
   
-  // Tatami lines
   ctx.strokeStyle = '#7A6548';
   ctx.lineWidth = 1;
   for (let i = 0; i < CANVAS_WIDTH; i += 40) {
@@ -41,7 +38,6 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
     ctx.stroke();
   }
 
-  // Fighting area boundary
   ctx.strokeStyle = '#cc3333';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -49,15 +45,16 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.lineTo(CANVAS_WIDTH - 100, GROUND_Y + 2);
   ctx.stroke();
 
-  // Background decoration - torii gate silhouette
   ctx.fillStyle = 'rgba(139, 0, 0, 0.15)';
-  // Pillars
   ctx.fillRect(380, 40, 12, 200);
   ctx.fillRect(568, 40, 12, 200);
-  // Top beam
   ctx.fillRect(365, 40, 230, 14);
   ctx.fillRect(370, 70, 220, 10);
 }
+
+// ============ REALISTIC KARATE FIGHTER ============
+// Body proportions based on real martial arts silhouettes
+// All positions relative to hip center (0,0 is at feet/ground)
 
 function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: string) {
   const { x, y, facing, state: fState, accentColor } = fighter;
@@ -68,728 +65,671 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
   const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 4 : 0;
   const bobY = fState === 'idle' ? Math.sin(Date.now() / 300) * 1.5 : 0;
-  const oY = (fState === 'hit' ? -3 : 0) + bobY + hitShake;
 
   const skin = '#e2b88a';
   const skinDark = '#c9985e';
-  const skinLight = '#f0d4a8';
   const giMain = fState === 'hit' ? '#ffaaaa' : '#f0ede6';
   const giShade = fState === 'hit' ? '#e08888' : '#d8d4ca';
   const giFold = fState === 'hit' ? '#cc7777' : '#c0bbb0';
   const beltCol = '#1a1a1a';
-  const beltShade = '#0a0a0a';
 
   // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath();
-  ctx.ellipse(0, GROUND_Y - y + 4, 42, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 4, 42, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ============ STANCE-BASED DRAWING ============
-  // The key insight from the reference: wide zenkutsu-dachi stance
-  // Front leg bent, back leg extended, torso upright, weight centered
+  // Body part lengths (realistic proportions)
+  const thighLen = 36;
+  const shinLen = 34;
+  const torsoLen = 42;
+  const upperArmLen = 22;
+  const forearmLen = 20;
+  const headR = 13;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
-    const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) : 0;
-    const legSpread = 18 + walkPhase * 5;
+    const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) * 0.15 : 0;
+    
+    // KAMAE stance - natural fighting position
+    // Hip position
+    const hipY = -40 + bobY;
+    
+    // Back leg: slightly angled back, mostly straight
+    const backHipAngle = -Math.PI / 2 - 0.35 + walkPhase;
+    const backKneeX = Math.cos(backHipAngle) * thighLen;
+    const backKneeY = hipY - Math.sin(backHipAngle) * thighLen;
+    const backFootX = backKneeX - 8;
+    const backFootY = 0;
+    
+    // Front leg: slightly forward, slight bend
+    const frontHipAngle = -Math.PI / 2 + 0.3 - walkPhase;
+    const frontKneeX = Math.cos(frontHipAngle) * thighLen;
+    const frontKneeY = hipY - Math.sin(frontHipAngle) * thighLen;
+    const frontFootX = frontKneeX + 6;
+    const frontFootY = 0;
 
-    // === BACK LEG (straight, extended behind) ===
-    // Foot
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-legSpread - 4, 34 + oY, 10, 4, 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // Calf + thigh as one angled gi pant
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-8, -10 + oY);       // hip
-    ctx.lineTo(-legSpread - 10, 30 + oY); // outer ankle
-    ctx.lineTo(-legSpread + 6, 30 + oY);  // inner ankle
-    ctx.lineTo(0, -10 + oY);        // inner hip
-    ctx.closePath();
-    ctx.fill();
-    // Pant fold
-    ctx.strokeStyle = giFold;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(-4, -5 + oY);
-    ctx.quadraticCurveTo(-legSpread * 0.5, 10 + oY, -legSpread - 2, 28 + oY);
-    ctx.stroke();
+    // Draw legs
+    drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, backFootY, giMain, giFold, skin, skinDark, 12);
+    drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, frontFootY, giMain, giFold, skin, skinDark, 12);
 
-    // === FRONT LEG (bent knee, forward) ===
-    // Foot
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(legSpread + 2, 34 + oY, 10, 4, -0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // Thigh going forward-down to knee
-    const kneeX = legSpread * 0.6;
-    const kneeY = 10 + oY;
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(2, -10 + oY);       // hip
-    ctx.lineTo(kneeX - 6, kneeY);   // outer knee
-    ctx.lineTo(kneeX + 8, kneeY);   // inner knee
-    ctx.lineTo(10, -10 + oY);       // inner hip
-    ctx.closePath();
-    ctx.fill();
-    // Shin from knee down
-    ctx.beginPath();
-    ctx.moveTo(kneeX - 6, kneeY);
-    ctx.lineTo(legSpread - 4, 30 + oY);
-    ctx.lineTo(legSpread + 10, 30 + oY);
-    ctx.lineTo(kneeX + 8, kneeY);
-    ctx.closePath();
-    ctx.fill();
-    // Knee detail
-    ctx.strokeStyle = giFold;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(kneeX, kneeY - 2);
-    ctx.quadraticCurveTo(kneeX + 2, kneeY + 4, legSpread + 3, 28 + oY);
-    ctx.stroke();
+    // Torso - slightly angled forward
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 2;
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // === TORSO ===
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    // Back arm - fist at hip (hikite)
+    const backShoulderX = shoulderX - 14;
+    const backElbowX = backShoulderX - 6;
+    const backElbowY = shoulderY + 18;
+    const backFistX = backShoulderX - 2;
+    const backFistY = hipY + 2;
+    drawArm(ctx, backShoulderX, shoulderY + 4, backElbowX, backElbowY, backFistX, backFistY, giMain, skin, skinDark, false);
 
-    // === ARMS (fighting stance like reference) ===
-    // BACK ARM - hikite at hip, fist pulled back
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-16, -62 + oY);  // shoulder
-    ctx.lineTo(-22, -42 + oY);  // elbow area
-    ctx.lineTo(-18, -28 + oY);  // near belt
-    ctx.lineTo(-8, -28 + oY);
-    ctx.lineTo(-12, -42 + oY);
-    ctx.lineTo(-8, -56 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Fist at hip
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, -18, -26 + oY, 0);
+    // Front arm - guard up at chest/chin height
+    const frontShoulderX = shoulderX + 14;
+    const frontElbowX = frontShoulderX + 12;
+    const frontElbowY = shoulderY + 16;
+    const frontFistX = frontShoulderX + 8;
+    const frontFistY = shoulderY + 4;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontElbowX, frontElbowY, frontFistX, frontFistY, giMain, skin, skinDark, true);
 
-    // FRONT ARM - guard up, forearm raised, fist at face height
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(16, -62 + oY);   // shoulder
-    ctx.lineTo(24, -52 + oY);   // upper arm going forward
-    ctx.lineTo(22, -46 + oY);
-    ctx.lineTo(14, -54 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Forearm going up
-    ctx.fillStyle = skin;
-    ctx.save();
-    ctx.translate(23, -50 + oY);
-    ctx.rotate(-1.2);
-    drawRoundedRect(ctx, 0, -3, 22, 8, 3);
-    ctx.fill();
-    ctx.restore();
-    // Fist raised
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, 30, -72 + oY, -0.3);
-
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'punch') {
-    // PUNCH: front leg lunges, back leg pushes, arm extends
-    const legSpread = 22;
+    // GYAKU-ZUKI: Deep lunge, fully extended punch
+    // Reference: back leg FULLY straight and extended, front knee deeply bent
+    const hipY = -36;
+    
+    // Back leg - fully extended straight behind (like in reference)
+    const backFootX = -32;
+    const backKneeX = -18;
+    const backKneeY = hipY + 18;
+    
+    // Front leg - deep lunge, knee bent at ~90°
+    const frontFootX = 28;
+    const frontKneeX = 22;
+    const frontKneeY = hipY + 14;
 
-    // Back leg (pushing, straight)
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-legSpread - 2, 34 + oY, 10, 4, 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-6, -10 + oY);
-    ctx.lineTo(-legSpread - 8, 30 + oY);
-    ctx.lineTo(-legSpread + 8, 30 + oY);
-    ctx.lineTo(2, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
+    drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinDark, 13);
+    drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinDark, 13);
 
-    // Front leg (lunging forward, bent)
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(legSpread + 6, 34 + oY, 10, 4, -0.1, 0, Math.PI * 2);
-    ctx.fill();
-    const kneeX = legSpread * 0.7;
-    const kneeY = 8 + oY;
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(4, -10 + oY);
-    ctx.lineTo(kneeX - 4, kneeY);
-    ctx.lineTo(kneeX + 10, kneeY);
-    ctx.lineTo(12, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(kneeX - 4, kneeY);
-    ctx.lineTo(legSpread, 30 + oY);
-    ctx.lineTo(legSpread + 14, 30 + oY);
-    ctx.lineTo(kneeX + 10, kneeY);
-    ctx.closePath();
-    ctx.fill();
+    // Torso - rotated into punch (hip rotation)
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 4;
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    // HIKITE arm - pulled back tight to hip
+    const backShoulderX = shoulderX - 14;
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinDark, false);
 
-    // BACK ARM - hikite pulled tight to hip
-    ctx.fillStyle = giMain;
-    drawRoundedRect(ctx, -24, -56 + oY, 14, 26, 3);
-    ctx.fill();
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, -20, -28 + oY, 0);
+    // PUNCH arm - fully extended forward, straight line from shoulder to fist
+    const frontShoulderX = shoulderX + 14;
+    const punchReach = 55; // long reach
+    const punchElbowX = frontShoulderX + punchReach * 0.5;
+    const punchElbowY = shoulderY + 6;
+    const punchFistX = frontShoulderX + punchReach;
+    const punchFistY = shoulderY + 8;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, punchElbowX, punchElbowY, punchFistX, punchFistY, giMain, skin, skinDark, true);
 
-    // FRONT ARM - fully extended gyaku-zuki
-    // Sleeve
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(16, -64 + oY);
-    ctx.lineTo(32, -60 + oY);
-    ctx.lineTo(32, -50 + oY);
-    ctx.lineTo(16, -48 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Extended forearm
-    ctx.fillStyle = skin;
-    ctx.fillRect(32, -59 + oY, 32, 9);
-    // Fist impact
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, 62, -58 + oY, 0);
-    // Wrist detail
-    ctx.strokeStyle = skinDark;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(31, -55 + oY);
-    ctx.lineTo(33, -55 + oY);
-    ctx.stroke();
-
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'kick') {
-    // MAWASHI-GERI / side kick - standing on back leg, front leg extended high
+    // YOKO-GERI / MAE-GERI - high kick as in the reference image
+    // Standing on back leg, kicking leg extended HIGH (head height)
+    const hipY = -42;
+    
+    // Standing leg - slightly bent, supporting weight
+    const standFootX = -10;
+    const standKneeX = -6;
+    const standKneeY = hipY + 20;
+    drawLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinDark, 12);
 
-    // Standing leg (slightly bent)
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-6, -10 + oY);
-    ctx.lineTo(-16, 30 + oY);
-    ctx.lineTo(4, 30 + oY);
-    ctx.lineTo(6, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
+    // Kicking leg - extended HIGH and forward (like reference silhouette)
+    // Thigh goes up and forward, shin extends out horizontally at head height
+    const kickKneeX = 18;
+    const kickKneeY = hipY - 20;
+    const kickFootX = 62;
+    const kickFootY = hipY - torsoLen + 10; // at head height!
 
-    // Kicking leg - extended horizontally
-    // Thigh
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(4, -12 + oY);
-    ctx.lineTo(20, -30 + oY);
-    ctx.lineTo(24, -20 + oY);
-    ctx.lineTo(10, -4 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Shin + foot extended
-    ctx.beginPath();
-    ctx.moveTo(20, -30 + oY);
-    ctx.lineTo(55, -34 + oY);
-    ctx.lineTo(55, -24 + oY);
-    ctx.lineTo(24, -20 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Bare foot
-    ctx.fillStyle = skin;
-    ctx.beginPath();
-    ctx.moveTo(55, -34 + oY);
-    ctx.lineTo(68, -32 + oY);
-    ctx.lineTo(68, -26 + oY);
-    ctx.lineTo(55, -24 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Toes
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(68, -29 + oY, 3, 5, 0.2, 0, Math.PI * 2);
-    ctx.fill();
+    // Kicking leg gi pants
+    drawLegKick(ctx, 0, hipY, kickKneeX, kickKneeY, kickFootX, kickFootY, giMain, giFold, skin, skinDark);
 
-    // Gi pant wrinkles on kicking leg
-    ctx.strokeStyle = giFold;
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    ctx.moveTo(12, -8 + oY);
-    ctx.quadraticCurveTo(30, -22 + oY, 50, -28 + oY);
-    ctx.stroke();
+    // Torso - leaning back slightly for balance (as in reference)
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = -4; // lean back
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    // Arms - both in guard position, slightly back for balance
+    const backShoulderX = shoulderX - 14;
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 16, backShoulderX - 4, hipY, giMain, skin, skinDark, false);
 
-    // Arms in guard during kick
-    // Back arm
-    ctx.fillStyle = giMain;
-    drawRoundedRect(ctx, -24, -60 + oY, 14, 26, 3);
-    ctx.fill();
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, -20, -32 + oY, 0);
-    // Front arm guard
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(14, -64 + oY);
-    ctx.lineTo(22, -56 + oY);
-    ctx.lineTo(18, -44 + oY);
-    ctx.lineTo(10, -48 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = skin;
-    ctx.save();
-    ctx.translate(20, -50 + oY);
-    ctx.rotate(-0.8);
-    drawRoundedRect(ctx, 0, -3, 16, 7, 3);
-    ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, 28, -66 + oY, -0.4);
+    const frontShoulderX = shoulderX + 14;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 6, shoulderY + 14, frontShoulderX + 2, shoulderY + 4, giMain, skin, skinDark, true);
 
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'block') {
-    // Defensive stance - arms crossed/raised, weight back
-    const legSpread = 16;
+    // AGE-UKE / GEDAN-BARAI defensive stance
+    const hipY = -42 + bobY;
+    
+    const backFootX = -18;
+    const backKneeX = -10;
+    const backKneeY = hipY + 18;
+    const frontFootX = 16;
+    const frontKneeX = 12;
+    const frontKneeY = hipY + 16;
 
-    // Back leg
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-legSpread, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-6, -10 + oY);
-    ctx.lineTo(-legSpread - 8, 30 + oY);
-    ctx.lineTo(-legSpread + 8, 30 + oY);
-    ctx.lineTo(2, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
+    drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinDark, 12);
+    drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinDark, 12);
 
-    // Front leg
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(legSpread, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(2, -10 + oY);
-    ctx.lineTo(legSpread - 6, 30 + oY);
-    ctx.lineTo(legSpread + 10, 30 + oY);
-    ctx.lineTo(10, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 0;
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    // Blocking arms - crossed forearms in front of face
+    const ls = shoulderX - 14;
+    const rs = shoulderX + 14;
+    // Left arm crosses up
+    drawArm(ctx, ls, shoulderY + 4, ls + 8, shoulderY + 10, shoulderX + 4, shoulderY - 8, giMain, skin, skinDark, false);
+    // Right arm crosses up
+    drawArm(ctx, rs, shoulderY + 4, rs - 4, shoulderY + 10, shoulderX - 2, shoulderY - 6, giMain, skin, skinDark, true);
 
-    // Arms in gedan-barai block (forearm crossing body)
-    // Both sleeves
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-14, -64 + oY);
-    ctx.lineTo(-6, -50 + oY);
-    ctx.lineTo(6, -66 + oY);
-    ctx.lineTo(14, -66 + oY);
-    ctx.lineTo(4, -44 + oY);
-    ctx.lineTo(-20, -58 + oY);
-    ctx.closePath();
-    ctx.fill();
-    // Forearms crossed
-    ctx.strokeStyle = skin;
-    ctx.lineWidth = 9;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-10, -46 + oY);
-    ctx.lineTo(8, -70 + oY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(14, -46 + oY);
-    ctx.lineTo(-4, -70 + oY);
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-    // Fists
-    ctx.fillStyle = skinDark;
-    drawFist(ctx, 4, -74 + oY, -0.5);
-    drawFist(ctx, -8, -74 + oY, 0.5);
-
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'hit') {
-    // Recoiling - leaning back, legs stumbling
-    const legSpread = 14;
+    // Recoiling backward
+    const hipY = -38 + hitShake;
+    
+    const backFootX = -14;
+    const backKneeX = -10;
+    const backKneeY = hipY + 18;
+    const frontFootX = 10;
+    const frontKneeX = 8;
+    const frontKneeY = hipY + 20;
 
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-legSpread, 34 + oY, 9, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(legSpread - 4, 34 + oY, 9, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
+    drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinDark, 11);
+    drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinDark, 11);
 
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-6, -10 + oY);
-    ctx.lineTo(-legSpread - 6, 30 + oY);
-    ctx.lineTo(-legSpread + 6, 30 + oY);
-    ctx.lineTo(0, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(0, -10 + oY);
-    ctx.lineTo(legSpread - 10, 30 + oY);
-    ctx.lineTo(legSpread + 4, 30 + oY);
-    ctx.lineTo(8, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
-
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    const shoulderY = hipY - torsoLen + 6; // hunched
+    const shoulderX = -6; // leaning back
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
     // Arms flailing
-    ctx.fillStyle = giMain;
-    drawRoundedRect(ctx, -26, -62 + oY, 14, 22, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, 14, -58 + oY, 14, 18, 3);
-    ctx.fill();
-    ctx.fillStyle = skin;
-    drawRoundedRect(ctx, -24, -42 + oY, 10, 8, 3);
-    ctx.fill();
-    drawRoundedRect(ctx, 16, -42 + oY, 10, 8, 3);
-    ctx.fill();
+    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 22, shoulderY + 14, shoulderX - 18, shoulderY + 24, giMain, skin, skinDark, false);
+    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 20, shoulderY + 12, shoulderX + 16, shoulderY + 22, giMain, skin, skinDark, false);
 
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
   } else if (fState === 'victory') {
-    // Standing tall, arms raised
-    ctx.fillStyle = skinDark;
-    ctx.beginPath();
-    ctx.ellipse(-8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(8, 34 + oY, 10, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
+    const hipY = -42;
+    
+    drawLeg(ctx, 0, hipY, -6, hipY + 20, -10, 0, giMain, giFold, skin, skinDark, 12);
+    drawLeg(ctx, 0, hipY, 6, hipY + 20, 10, 0, giMain, giFold, skin, skinDark, 12);
 
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-6, -10 + oY);
-    ctx.lineTo(-14, 30 + oY);
-    ctx.lineTo(2, 30 + oY);
-    ctx.lineTo(2, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(0, -10 + oY);
-    ctx.lineTo(0, 30 + oY);
-    ctx.lineTo(16, 30 + oY);
-    ctx.lineTo(8, -10 + oY);
-    ctx.closePath();
-    ctx.fill();
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 0;
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawTorso(ctx, oY, giMain, giShade, giFold, beltCol, beltShade);
+    // Arms raised in victory
+    drawArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 20, shoulderY - 20, shoulderX - 16, shoulderY - 36, giMain, skin, skinDark, true);
+    drawArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 22, shoulderY - 22, shoulderX + 18, shoulderY - 38, giMain, skin, skinDark, true);
 
-    // Arms raised in triumph
-    ctx.fillStyle = giMain;
-    ctx.beginPath();
-    ctx.moveTo(-14, -64 + oY);
-    ctx.lineTo(-24, -100 + oY);
-    ctx.lineTo(-12, -100 + oY);
-    ctx.lineTo(-4, -64 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(6, -64 + oY);
-    ctx.lineTo(14, -105 + oY);
-    ctx.lineTo(26, -105 + oY);
-    ctx.lineTo(16, -64 + oY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = skin;
-    drawFist(ctx, -22, -106 + oY, 0);
-    drawFist(ctx, 16, -111 + oY, 0);
-
-    drawHead(ctx, oY, fState, skin, skinDark, skinLight, accentColor);
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
   }
 
   ctx.restore();
 }
 
-// === SHARED DRAWING HELPERS ===
+// ============ BODY PART DRAWING HELPERS ============
 
-function drawTorso(ctx: CanvasRenderingContext2D, oY: number, giMain: string, giShade: string, giFold: string, beltCol: string, beltShade: string) {
-  // Torso base (gi jacket)
-  ctx.fillStyle = giShade;
-  drawRoundedRect(ctx, -20, -72 + oY, 42, 64, 4);
-  ctx.fill();
-  ctx.fillStyle = giMain;
-  drawRoundedRect(ctx, -18, -72 + oY, 40, 62, 4);
+function drawLeg(
+  ctx: CanvasRenderingContext2D,
+  hipX: number, hipY: number,
+  kneeX: number, kneeY: number,
+  footX: number, footY: number,
+  giCol: string, foldCol: string,
+  skinCol: string, skinDarkCol: string,
+  limbW: number
+) {
+  const thighW = limbW;
+  const shinW = limbW - 2;
+
+  // Thigh (gi pants)
+  ctx.fillStyle = giCol;
+  ctx.beginPath();
+  const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
+  const perpX = Math.sin(thighAngle) * thighW / 2;
+  const perpY = -Math.cos(thighAngle) * thighW / 2;
+  ctx.moveTo(hipX + perpX, hipY + perpY);
+  ctx.lineTo(kneeX + perpX * 0.9, kneeY + perpY * 0.9);
+  ctx.lineTo(kneeX - perpX * 0.9, kneeY - perpY * 0.9);
+  ctx.lineTo(hipX - perpX, hipY - perpY);
+  ctx.closePath();
   ctx.fill();
 
-  // Gi lapel - cross-over V shape
+  // Shin (gi pants lower, slightly narrower)
+  ctx.beginPath();
+  const shinAngle = Math.atan2(footY - kneeY, footX - kneeX);
+  const sPerpX = Math.sin(shinAngle) * shinW / 2;
+  const sPerpY = -Math.cos(shinAngle) * shinW / 2;
+  ctx.moveTo(kneeX + sPerpX, kneeY + sPerpY);
+  ctx.lineTo(footX + sPerpX * 0.7, footY + sPerpY * 0.7);
+  ctx.lineTo(footX - sPerpX * 0.7, footY - sPerpY * 0.7);
+  ctx.lineTo(kneeX - sPerpX, kneeY - sPerpY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Knee fold line
+  ctx.strokeStyle = foldCol;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(kneeX + perpX * 0.5, kneeY + perpY * 0.5);
+  ctx.lineTo(kneeX - perpX * 0.5, kneeY - perpY * 0.5);
+  ctx.stroke();
+
+  // Pant bottom fold
+  ctx.beginPath();
+  ctx.moveTo(footX + sPerpX * 0.8, footY + sPerpY * 0.8 - 4);
+  ctx.lineTo(footX - sPerpX * 0.8, footY - sPerpY * 0.8 - 4);
+  ctx.stroke();
+
+  // Bare foot
+  ctx.fillStyle = skinCol;
+  const footLen = 14;
+  const footDir = footX > kneeX ? 1 : (footX < kneeX ? -1 : 1);
+  ctx.beginPath();
+  ctx.ellipse(footX + footDir * 4, footY, footLen / 2, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Toes
+  ctx.fillStyle = skinDarkCol;
+  ctx.beginPath();
+  ctx.ellipse(footX + footDir * 10, footY, 3, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawLegKick(
+  ctx: CanvasRenderingContext2D,
+  hipX: number, hipY: number,
+  kneeX: number, kneeY: number,
+  footX: number, footY: number,
+  giCol: string, foldCol: string,
+  skinCol: string, skinDarkCol: string,
+) {
+  const limbW = 13;
+
+  // Thigh
+  ctx.fillStyle = giCol;
+  ctx.beginPath();
+  const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
+  const perpX = Math.sin(thighAngle) * limbW / 2;
+  const perpY = -Math.cos(thighAngle) * limbW / 2;
+  ctx.moveTo(hipX + perpX, hipY + perpY);
+  ctx.lineTo(kneeX + perpX, kneeY + perpY);
+  ctx.lineTo(kneeX - perpX, kneeY - perpY);
+  ctx.lineTo(hipX - perpX, hipY - perpY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Shin (extended outward)
+  const shinW = limbW - 1;
+  ctx.beginPath();
+  const shinAngle = Math.atan2(footY - kneeY, footX - kneeX);
+  const sPerpX = Math.sin(shinAngle) * shinW / 2;
+  const sPerpY = -Math.cos(shinAngle) * shinW / 2;
+  ctx.moveTo(kneeX + sPerpX, kneeY + sPerpY);
+  ctx.lineTo(footX + sPerpX * 0.6, footY + sPerpY * 0.6);
+  ctx.lineTo(footX - sPerpX * 0.6, footY - sPerpY * 0.6);
+  ctx.lineTo(kneeX - sPerpX, kneeY - sPerpY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gi fold wrinkles on thigh
+  ctx.strokeStyle = foldCol;
+  ctx.lineWidth = 0.7;
+  const midThighX = (hipX + kneeX) / 2;
+  const midThighY = (hipY + kneeY) / 2;
+  ctx.beginPath();
+  ctx.moveTo(midThighX + perpX * 0.4, midThighY + perpY * 0.4);
+  ctx.lineTo(midThighX - perpX * 0.4, midThighY - perpY * 0.4);
+  ctx.stroke();
+
+  // Bare foot - extended, pointed (like in reference)
+  ctx.fillStyle = skinCol;
+  const footAngle = shinAngle;
+  ctx.save();
+  ctx.translate(footX, footY);
+  ctx.rotate(footAngle);
+  // Foot shape - elongated and pointed for kicking
+  ctx.beginPath();
+  ctx.moveTo(-4, -5);
+  ctx.lineTo(16, -3);
+  ctx.lineTo(18, 0);
+  ctx.lineTo(16, 3);
+  ctx.lineTo(-4, 5);
+  ctx.closePath();
+  ctx.fill();
+  // Ball of foot (koshi) - the striking surface
+  ctx.fillStyle = skinDarkCol;
+  ctx.beginPath();
+  ctx.ellipse(16, 0, 4, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawArm(
+  ctx: CanvasRenderingContext2D,
+  shoulderX: number, shoulderY: number,
+  elbowX: number, elbowY: number,
+  fistX: number, fistY: number,
+  giCol: string, skinCol: string, skinDarkCol: string,
+  isFist: boolean
+) {
+  const armW = 9;
+
+  // Upper arm (gi sleeve)
+  ctx.fillStyle = giCol;
+  ctx.beginPath();
+  const uAngle = Math.atan2(elbowY - shoulderY, elbowX - shoulderX);
+  const uPx = Math.sin(uAngle) * armW / 2;
+  const uPy = -Math.cos(uAngle) * armW / 2;
+  ctx.moveTo(shoulderX + uPx, shoulderY + uPy);
+  ctx.lineTo(elbowX + uPx * 0.9, elbowY + uPy * 0.9);
+  ctx.lineTo(elbowX - uPx * 0.9, elbowY - uPy * 0.9);
+  ctx.lineTo(shoulderX - uPx, shoulderY - uPy);
+  ctx.closePath();
+  ctx.fill();
+
+  // Forearm (skin)
+  const fArmW = 7;
+  ctx.fillStyle = skinCol;
+  ctx.beginPath();
+  const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
+  const fPx = Math.sin(fAngle) * fArmW / 2;
+  const fPy = -Math.cos(fAngle) * fArmW / 2;
+  ctx.moveTo(elbowX + fPx, elbowY + fPy);
+  ctx.lineTo(fistX + fPx * 0.8, fistY + fPy * 0.8);
+  ctx.lineTo(fistX - fPx * 0.8, fistY - fPy * 0.8);
+  ctx.lineTo(elbowX - fPx, elbowY - fPy);
+  ctx.closePath();
+  ctx.fill();
+
+  // Fist
+  ctx.fillStyle = skinDarkCol;
+  ctx.beginPath();
+  ctx.arc(fistX, fistY, isFist ? 6 : 5, 0, Math.PI * 2);
+  ctx.fill();
+  // Knuckle highlight
+  if (isFist) {
+    ctx.fillStyle = skinCol;
+    ctx.beginPath();
+    ctx.arc(fistX + Math.cos(fAngle) * 2, fistY + Math.sin(fAngle) * 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawTorsoBody(
+  ctx: CanvasRenderingContext2D,
+  hipX: number, hipY: number,
+  shoulderX: number, shoulderY: number,
+  giMain: string, giShade: string, giFold: string, beltCol: string
+) {
+  // Torso shape - wider at shoulders, narrower at waist
+  const shoulderW = 32;
+  const waistW = 24;
+
+  // Back shadow
   ctx.fillStyle = giShade;
   ctx.beginPath();
-  ctx.moveTo(-10, -72 + oY);
-  ctx.lineTo(-2, -38 + oY);
-  ctx.lineTo(12, -72 + oY);
-  ctx.lineTo(6, -72 + oY);
-  ctx.lineTo(-2, -48 + oY);
-  ctx.lineTo(-4, -72 + oY);
+  ctx.moveTo(shoulderX - shoulderW / 2 - 1, shoulderY);
+  ctx.lineTo(hipX - waistW / 2 - 1, hipY);
+  ctx.lineTo(hipX + waistW / 2 + 1, hipY);
+  ctx.lineTo(shoulderX + shoulderW / 2 + 1, shoulderY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Main gi jacket
+  ctx.fillStyle = giMain;
+  ctx.beginPath();
+  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 1);
+  ctx.lineTo(hipX - waistW / 2, hipY);
+  ctx.lineTo(hipX + waistW / 2, hipY);
+  ctx.lineTo(shoulderX + shoulderW / 2, shoulderY + 1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gi lapel V-shape
+  const lapelCenterX = (shoulderX + hipX) / 2;
+  const lapelCenterY = (shoulderY + hipY) / 2 + 8;
+  ctx.fillStyle = giShade;
+  ctx.beginPath();
+  ctx.moveTo(shoulderX - 6, shoulderY + 2);
+  ctx.lineTo(lapelCenterX, lapelCenterY);
+  ctx.lineTo(shoulderX + 8, shoulderY + 2);
+  ctx.lineTo(shoulderX + 4, shoulderY + 2);
+  ctx.lineTo(lapelCenterX, lapelCenterY - 6);
+  ctx.lineTo(shoulderX - 2, shoulderY + 2);
   ctx.closePath();
   ctx.fill();
 
   // Lapel stitching
   ctx.strokeStyle = giFold;
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(-7, -72 + oY);
-  ctx.lineTo(-2, -44 + oY);
-  ctx.lineTo(9, -72 + oY);
+  ctx.moveTo(shoulderX - 5, shoulderY + 3);
+  ctx.lineTo(lapelCenterX, lapelCenterY - 2);
+  ctx.lineTo(shoulderX + 7, shoulderY + 3);
   ctx.stroke();
 
-  // Fabric fold lines
+  // Side seam lines
   ctx.strokeStyle = giFold;
   ctx.lineWidth = 0.6;
   ctx.beginPath();
-  ctx.moveTo(-16, -55 + oY);
-  ctx.quadraticCurveTo(-10, -48 + oY, -6, -46 + oY);
+  ctx.moveTo(shoulderX - shoulderW / 2 + 2, shoulderY + 10);
+  ctx.lineTo(hipX - waistW / 2 + 1, hipY - 4);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(20, -55 + oY);
-  ctx.quadraticCurveTo(14, -49 + oY, 8, -46 + oY);
-  ctx.stroke();
-  // Side seam
-  ctx.beginPath();
-  ctx.moveTo(-18, -40 + oY);
-  ctx.lineTo(-18, -14 + oY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(20, -40 + oY);
-  ctx.lineTo(20, -14 + oY);
+  ctx.moveTo(shoulderX + shoulderW / 2 - 2, shoulderY + 10);
+  ctx.lineTo(hipX + waistW / 2 - 1, hipY - 4);
   ctx.stroke();
 
-  // === BLACK BELT (obi) ===
+  // BLACK BELT (OBI)
+  const beltY = hipY - 4;
+  const beltH = 8;
   ctx.fillStyle = beltCol;
-  ctx.fillRect(-22, -16 + oY, 46, 9);
-  // Belt shading
-  ctx.fillStyle = beltShade;
-  ctx.fillRect(-22, -16 + oY, 46, 3);
-  // Belt texture
+  ctx.beginPath();
+  ctx.moveTo(hipX - waistW / 2 - 2, beltY);
+  ctx.lineTo(hipX + waistW / 2 + 2, beltY);
+  ctx.lineTo(hipX + waistW / 2 + 2, beltY + beltH);
+  ctx.lineTo(hipX - waistW / 2 - 2, beltY + beltH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Belt texture lines
   ctx.strokeStyle = '#2a2a2a';
   ctx.lineWidth = 0.4;
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.moveTo(-22, -15 + i * 3 + oY);
-    ctx.lineTo(24, -15 + i * 3 + oY);
-    ctx.stroke();
-  }
-  // Knot
+  ctx.beginPath();
+  ctx.moveTo(hipX - waistW / 2, beltY + 2);
+  ctx.lineTo(hipX + waistW / 2, beltY + 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hipX - waistW / 2, beltY + beltH - 2);
+  ctx.lineTo(hipX + waistW / 2, beltY + beltH - 2);
+  ctx.stroke();
+
+  // Belt knot
   ctx.fillStyle = '#222';
   ctx.beginPath();
-  ctx.ellipse(4, -11 + oY, 6, 4, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(hipX + 3, beltY + beltH / 2, 5, 3.5, 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.ellipse(4, -11 + oY, 3, 2, 0, 0, Math.PI * 2);
+  ctx.ellipse(hipX + 3, beltY + beltH / 2, 2.5, 1.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Belt tails
+
+  // Belt tails hanging
   ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.moveTo(1, -7 + oY);
-  ctx.lineTo(-4, 10 + oY);
-  ctx.lineTo(-1, 10 + oY);
-  ctx.lineTo(4, -7 + oY);
+  ctx.moveTo(hipX + 1, beltY + beltH);
+  ctx.lineTo(hipX - 3, beltY + beltH + 16);
+  ctx.lineTo(hipX, beltY + beltH + 16);
+  ctx.lineTo(hipX + 4, beltY + beltH);
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(5, -7 + oY);
-  ctx.lineTo(12, 8 + oY);
-  ctx.lineTo(9, 8 + oY);
-  ctx.lineTo(2, -7 + oY);
+  ctx.moveTo(hipX + 4, beltY + beltH);
+  ctx.lineTo(hipX + 10, beltY + beltH + 14);
+  ctx.lineTo(hipX + 7, beltY + beltH + 14);
+  ctx.lineTo(hipX + 1, beltY + beltH);
   ctx.closePath();
   ctx.fill();
 }
 
-function drawHead(ctx: CanvasRenderingContext2D, oY: number, fState: string, skin: string, skinDark: string, skinLight: string, accentColor: string) {
+function drawHeadNew(
+  ctx: CanvasRenderingContext2D,
+  shoulderX: number, shoulderY: number,
+  fState: string,
+  skin: string, skinDark: string,
+  accentColor: string, headR: number
+) {
+  const neckX = shoulderX + 1;
+  const neckY = shoulderY;
+  const headX = neckX;
+  const headY = neckY - headR - 4;
+
   // Neck
   ctx.fillStyle = skin;
-  ctx.fillRect(-4, -76 + oY, 10, 8);
-  // Neck shadow
+  ctx.fillRect(neckX - 4, neckY - 6, 8, 8);
   ctx.fillStyle = skinDark;
-  ctx.fillRect(-4, -72 + oY, 10, 3);
+  ctx.fillRect(neckX - 4, neckY - 2, 8, 3);
 
   // Head
   ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.ellipse(1, -88 + oY, 14, 16, 0, 0, Math.PI * 2);
+  ctx.ellipse(headX, headY, headR, headR + 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Jaw/chin definition
+  // Jaw
   ctx.fillStyle = skinDark;
   ctx.beginPath();
-  ctx.ellipse(1, -78 + oY, 10, 5, 0, 0.2, Math.PI - 0.2);
+  ctx.ellipse(headX, headY + headR - 4, headR - 3, 4, 0, 0.2, Math.PI - 0.2);
   ctx.fill();
   ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.ellipse(1, -79 + oY, 10, 5, 0, 0.2, Math.PI - 0.2);
+  ctx.ellipse(headX, headY + headR - 5, headR - 3, 4, 0, 0.2, Math.PI - 0.2);
   ctx.fill();
 
   // Hair
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.ellipse(1, -93 + oY, 15, 12, 0, Math.PI + 0.3, -0.3);
+  ctx.ellipse(headX, headY - 4, headR + 1, headR - 2, 0, Math.PI + 0.3, -0.3);
   ctx.fill();
-  // Side burns
-  ctx.fillRect(-13, -93 + oY, 4, 12);
-  ctx.fillRect(11, -93 + oY, 4, 12);
-  // Hair top volume
+  ctx.fillRect(headX - headR - 1, headY - 4, 4, 10);
+  ctx.fillRect(headX + headR - 2, headY - 4, 4, 10);
   ctx.beginPath();
-  ctx.ellipse(1, -96 + oY, 12, 6, 0, Math.PI, 0);
+  ctx.ellipse(headX, headY - 6, headR - 1, 5, 0, Math.PI, 0);
   ctx.fill();
 
   // Ears
   ctx.fillStyle = skinDark;
   ctx.beginPath();
-  ctx.ellipse(-13, -87 + oY, 3, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = skinLight;
-  ctx.beginPath();
-  ctx.ellipse(-13, -87 + oY, 2, 3, 0, 0, Math.PI * 2);
+  ctx.ellipse(headX - headR, headY, 3, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Eyes
   ctx.fillStyle = '#fff';
-  drawRoundedRect(ctx, -7, -91 + oY, 7, 5, 2);
+  ctx.beginPath();
+  ctx.ellipse(headX - 4, headY - 1, 3.5, 2.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  drawRoundedRect(ctx, 3, -91 + oY, 7, 5, 2);
+  ctx.beginPath();
+  ctx.ellipse(headX + 5, headY - 1, 3.5, 2.5, 0, 0, Math.PI * 2);
   ctx.fill();
   // Iris
   ctx.fillStyle = '#3a2a1a';
   ctx.beginPath();
-  ctx.arc(-3, -88 + oY, 2.5, 0, Math.PI * 2);
+  ctx.arc(headX - 3, headY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(7, -88 + oY, 2.5, 0, Math.PI * 2);
+  ctx.arc(headX + 6, headY, 2, 0, Math.PI * 2);
   ctx.fill();
   // Pupil
   ctx.fillStyle = '#111';
   ctx.beginPath();
-  ctx.arc(-3, -88 + oY, 1.2, 0, Math.PI * 2);
+  ctx.arc(headX - 3, headY, 1, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(7, -88 + oY, 1.2, 0, Math.PI * 2);
-  ctx.fill();
-  // Eye highlight
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(-2, -89 + oY, 0.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(8, -89 + oY, 0.8, 0, Math.PI * 2);
+  ctx.arc(headX + 6, headY, 1, 0, Math.PI * 2);
   ctx.fill();
 
   // Eyebrows
   ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 2.2;
-  ctx.beginPath();
-  ctx.moveTo(-8, -94 + oY);
-  ctx.quadraticCurveTo(-4, -96 + oY, 0, -94 + oY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(3, -94 + oY);
-  ctx.quadraticCurveTo(6, -96 + oY, 10, -94 + oY);
-  ctx.stroke();
-
-  // Nose
-  ctx.strokeStyle = skinDark;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(2, -86 + oY);
-  ctx.lineTo(3, -82 + oY);
-  ctx.lineTo(1, -81 + oY);
-  ctx.stroke();
+  ctx.lineWidth = 2;
+  if (fState === 'hit') {
+    ctx.beginPath();
+    ctx.moveTo(headX - 7, headY - 5);
+    ctx.lineTo(headX - 1, headY - 3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(headX + 3, headY - 3);
+    ctx.lineTo(headX + 9, headY - 5);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(headX - 7, headY - 4);
+    ctx.quadraticCurveTo(headX - 4, headY - 6, headX - 1, headY - 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(headX + 3, headY - 4);
+    ctx.quadraticCurveTo(headX + 5, headY - 6, headX + 9, headY - 4);
+    ctx.stroke();
+  }
 
   // Mouth
   if (fState === 'hit') {
     ctx.fillStyle = '#6b3a2a';
     ctx.beginPath();
-    ctx.ellipse(2, -78 + oY, 4, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(headX + 1, headY + headR - 7, 4, 3, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, -79 + oY, 4, 2);
   } else if (fState === 'punch' || fState === 'kick') {
     ctx.fillStyle = '#6b3a2a';
     ctx.beginPath();
-    ctx.ellipse(2, -78 + oY, 3, 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(headX + 1, headY + headR - 7, 3, 2, 0, 0, Math.PI * 2);
     ctx.fill();
+  } else if (fState === 'victory') {
+    ctx.strokeStyle = '#8b5a4a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(headX + 1, headY + headR - 8, 3, 0.2, Math.PI - 0.2);
+    ctx.stroke();
   } else {
     ctx.strokeStyle = '#8b5a4a';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(-1, -78 + oY);
-    ctx.quadraticCurveTo(2, -77 + oY, 5, -78 + oY);
+    ctx.moveTo(headX - 2, headY + headR - 7);
+    ctx.quadraticCurveTo(headX + 1, headY + headR - 6, headX + 4, headY + headR - 7);
     ctx.stroke();
   }
 
-  // Headband (hachimaki) - team color identifier
+  // Hachimaki (headband) - team identifier
   ctx.fillStyle = accentColor;
+  const bandY = headY - headR + 2;
   ctx.beginPath();
-  ctx.moveTo(-14, -97 + oY);
-  ctx.lineTo(16, -97 + oY);
-  ctx.lineTo(16, -93 + oY);
-  ctx.lineTo(-14, -93 + oY);
+  ctx.moveTo(headX - headR - 1, bandY);
+  ctx.lineTo(headX + headR + 1, bandY);
+  ctx.lineTo(headX + headR + 1, bandY + 4);
+  ctx.lineTo(headX - headR - 1, bandY + 4);
   ctx.closePath();
   ctx.fill();
-  // Headband tails flowing behind
+  // Tails
   ctx.beginPath();
-  ctx.moveTo(-14, -97 + oY);
-  ctx.quadraticCurveTo(-22, -95 + oY, -26, -89 + oY);
-  ctx.lineTo(-24, -91 + oY);
-  ctx.quadraticCurveTo(-20, -95 + oY, -14, -93 + oY);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-14, -97 + oY);
-  ctx.quadraticCurveTo(-24, -93 + oY, -30, -86 + oY);
-  ctx.lineTo(-28, -88 + oY);
-  ctx.quadraticCurveTo(-22, -93 + oY, -14, -93 + oY);
+  ctx.moveTo(headX - headR - 1, bandY);
+  ctx.quadraticCurveTo(headX - headR - 10, bandY + 4, headX - headR - 14, bandY + 10);
+  ctx.lineTo(headX - headR - 12, bandY + 12);
+  ctx.quadraticCurveTo(headX - headR - 8, bandY + 4, headX - headR - 1, bandY + 4);
   ctx.closePath();
   ctx.fill();
 }
 
-function drawFist(ctx: CanvasRenderingContext2D, fx: number, fy: number, angle: number) {
-  ctx.save();
-  ctx.translate(fx, fy);
-  ctx.rotate(angle);
-  drawRoundedRect(ctx, 0, 0, 12, 12, 4);
-  ctx.fill();
-  // Knuckle line
-  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(3, 1);
-  ctx.lineTo(3, 11);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
+// ============ HUD, EFFECTS, MENUS (unchanged) ============
 
 function drawHitEffect(ctx: CanvasRenderingContext2D, effect: { x: number; y: number; timer: number; type: string }) {
   const alpha = effect.timer / 15;
@@ -798,7 +738,6 @@ function drawHitEffect(ctx: CanvasRenderingContext2D, effect: { x: number; y: nu
   ctx.save();
   ctx.globalAlpha = alpha;
   
-  // Impact burst
   ctx.strokeStyle = effect.type === 'kick' ? '#ff4444' : '#ffaa00';
   ctx.lineWidth = 3;
   for (let i = 0; i < 8; i++) {
@@ -809,7 +748,6 @@ function drawHitEffect(ctx: CanvasRenderingContext2D, effect: { x: number; y: nu
     ctx.stroke();
   }
 
-  // Impact text
   ctx.fillStyle = '#fff';
   ctx.font = `bold ${14 + size/3}px sans-serif`;
   ctx.textAlign = 'center';
@@ -819,17 +757,14 @@ function drawHitEffect(ctx: CanvasRenderingContext2D, effect: { x: number; y: nu
 }
 
 function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
-  // Score display
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.fillRect(0, 0, CANVAS_WIDTH, 50);
   
-  // Player score
   ctx.fillStyle = '#4488ff';
   ctx.font = 'bold 18px sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('JOGADOR', 20, 20);
   
-  // Score dots
   for (let i = 0; i < MAX_SCORE; i++) {
     ctx.beginPath();
     ctx.arc(20 + i * 28, 38, 8, 0, Math.PI * 2);
@@ -840,7 +775,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.stroke();
   }
 
-  // Opponent score
   ctx.fillStyle = '#ff4444';
   ctx.font = 'bold 18px sans-serif';
   ctx.textAlign = 'right';
@@ -856,7 +790,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.stroke();
   }
 
-  // Timer
   const minutes = Math.floor(state.timeRemaining / 60);
   const seconds = Math.floor(state.timeRemaining % 60);
   const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -866,17 +799,14 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.textAlign = 'center';
   ctx.fillText(timeStr, CANVAS_WIDTH / 2, 36);
 
-  // Stamina bars
   const barWidth = 150;
   const barHeight = 6;
   
-  // Player stamina
   ctx.fillStyle = '#333';
   ctx.fillRect(20, 48, barWidth, barHeight - 2);
   ctx.fillStyle = state.player.stamina > 25 ? '#44cc44' : '#cccc44';
   ctx.fillRect(20, 48, (state.player.stamina / STAMINA_MAX) * barWidth, barHeight - 2);
 
-  // Opponent stamina
   ctx.fillStyle = '#333';
   ctx.fillRect(CANVAS_WIDTH - 20 - barWidth, 48, barWidth, barHeight - 2);
   ctx.fillStyle = state.opponent.stamina > 25 ? '#44cc44' : '#cccc44';
@@ -905,7 +835,6 @@ function drawMenu(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   
-  // Title
   ctx.fillStyle = '#cc3333';
   ctx.font = 'bold 64px sans-serif';
   ctx.textAlign = 'center';
@@ -915,7 +844,6 @@ function drawMenu(ctx: CanvasRenderingContext2D) {
   ctx.font = '20px sans-serif';
   ctx.fillText('O Caminho das Mãos Vazias', CANVAS_WIDTH / 2, 200);
 
-  // Instructions
   ctx.fillStyle = '#ccc';
   ctx.font = '16px sans-serif';
   const instructions = [
@@ -928,7 +856,6 @@ function drawMenu(ctx: CanvasRenderingContext2D) {
     ctx.fillText(text, CANVAS_WIDTH / 2, 270 + i * 28);
   });
 
-  // Start prompt
   ctx.fillStyle = Math.sin(Date.now() / 400) > 0 ? '#cc3333' : '#ff5555';
   ctx.font = 'bold 24px sans-serif';
   ctx.fillText('Pressione ENTER ou ESPAÇO para lutar!', CANVAS_WIDTH / 2, 430);
