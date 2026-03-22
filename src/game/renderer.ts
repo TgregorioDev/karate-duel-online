@@ -422,7 +422,8 @@ function drawArm(
   elbowX: number, elbowY: number,
   fistX: number, fistY: number,
   giCol: string, skinCol: string, skinDarkCol: string,
-  isFist: boolean
+  isFist: boolean,
+  gloveColor?: string
 ) {
   const armW = 9;
 
@@ -453,17 +454,38 @@ function drawArm(
   ctx.closePath();
   ctx.fill();
 
-  // Fist
-  ctx.fillStyle = skinDarkCol;
-  ctx.beginPath();
-  ctx.arc(fistX, fistY, isFist ? 6 : 5, 0, Math.PI * 2);
-  ctx.fill();
-  // Knuckle highlight
-  if (isFist) {
-    ctx.fillStyle = skinCol;
+  // Glove (colored)
+  if (gloveColor) {
+    const gloveR = isFist ? 7 : 6;
+    // Main glove shape
+    ctx.fillStyle = gloveColor;
     ctx.beginPath();
-    ctx.arc(fistX + Math.cos(fAngle) * 2, fistY + Math.sin(fAngle) * 2, 3, 0, Math.PI * 2);
+    ctx.arc(fistX, fistY, gloveR, 0, Math.PI * 2);
     ctx.fill();
+    // Glove highlight
+    const lighter = gloveColor === '#cc2222' ? '#ee4444' : '#4488ee';
+    ctx.fillStyle = lighter;
+    ctx.beginPath();
+    ctx.arc(fistX - 1, fistY - 2, gloveR * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    // Glove wrist strap
+    const wristX = fistX - Math.cos(fAngle) * (gloveR + 1);
+    const wristY = fistY - Math.sin(fAngle) * (gloveR + 1);
+    ctx.fillStyle = gloveColor === '#cc2222' ? '#991111' : '#1a3366';
+    ctx.beginPath();
+    ctx.arc(wristX, wristY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = skinDarkCol;
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, isFist ? 6 : 5, 0, Math.PI * 2);
+    ctx.fill();
+    if (isFist) {
+      ctx.fillStyle = skinCol;
+      ctx.beginPath();
+      ctx.arc(fistX + Math.cos(fAngle) * 2, fistY + Math.sin(fAngle) * 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
