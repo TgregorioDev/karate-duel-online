@@ -6,7 +6,7 @@ import { GameState, InputState, CANVAS_WIDTH, CANVAS_HEIGHT, FIGHT_DURATION } fr
 export default function KarateGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef<InputState>({ left: false, right: false, punch: false, kick: false, block: false });
+  const inputRef = useRef<InputState>({ left: false, right: false, punch: false, kick: false, gyakuZuki: false, maeGeri: false, block: false });
   const animFrameRef = useRef<number>(0);
   const [, forceRender] = useState(0);
 

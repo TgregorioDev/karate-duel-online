@@ -23,6 +23,8 @@ export type FighterState =
   | 'walk-backward'
   | 'punch'
   | 'kick'
+  | 'gyaku-zuki'
+  | 'mae-geri'
   | 'block'
   | 'hit'
   | 'victory';
@@ -52,6 +54,8 @@ export interface InputState {
   right: boolean;
   punch: boolean;
   kick: boolean;
+  gyakuZuki: boolean;
+  maeGeri: boolean;
   block: boolean;
 }
 
@@ -64,7 +68,11 @@ export const FIGHTER_WIDTH = 60;
 export const FIGHTER_HEIGHT = 120;
 export const PUNCH_RANGE = 70;
 export const KICK_RANGE = 90;
+export const GYAKU_ZUKI_RANGE = 65;
+export const MAE_GERI_RANGE = 80;
 export const STAMINA_MAX = 100;
 export const STAMINA_REGEN = 0.5;
 export const PUNCH_COST = 15;
 export const KICK_COST = 25;
+export const GYAKU_ZUKI_COST = 20;
+export const MAE_GERI_COST = 22;
