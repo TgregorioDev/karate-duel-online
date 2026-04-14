@@ -29,6 +29,8 @@ export default function KarateGame() {
         case 'arrowright': case 'd': inp.right = true; break;
         case 'z': case 'j': inp.punch = true; break;
         case 'x': case 'k': inp.kick = true; break;
+        case 'v': case 'n': inp.gyakuZuki = true; break;
+        case 'b': case 'm': inp.maeGeri = true; break;
         case 'c': case 'l': inp.block = true; break;
         case 'enter': case ' ':
           e.preventDefault();
@@ -43,6 +45,8 @@ export default function KarateGame() {
         case 'arrowright': case 'd': inp.right = false; break;
         case 'z': case 'j': inp.punch = false; break;
         case 'x': case 'k': inp.kick = false; break;
+        case 'v': case 'n': inp.gyakuZuki = false; break;
+        case 'b': case 'm': inp.maeGeri = false; break;
         case 'c': case 'l': inp.block = false; break;
       }
     };
