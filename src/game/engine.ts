@@ -39,6 +39,8 @@ export function resetPositions(state: GameState) {
   state.opponent.stateTimer = 0;
   state.player.stamina = STAMINA_MAX;
   state.opponent.stamina = STAMINA_MAX;
+  state.player.blockTimer = 0;
+  state.opponent.blockTimer = 0;
   state.hitEffect = null;
 }
 
