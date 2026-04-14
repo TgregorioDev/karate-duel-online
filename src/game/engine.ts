@@ -10,7 +10,7 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
     x, y: GROUND_Y, width: FIGHTER_WIDTH, height: 120,
     velocityX: 0, health: 100, score: 0,
     facing, state: 'idle', stateTimer: 0,
-    stamina: STAMINA_MAX, hitCooldown: 0,
+    stamina: STAMINA_MAX, hitCooldown: 0, blockTimer: 0,
     color, accentColor: accent, beltColor: belt,
   };
 }

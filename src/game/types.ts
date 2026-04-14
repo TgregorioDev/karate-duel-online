@@ -11,6 +11,7 @@ export interface Fighter {
   stateTimer: number;
   stamina: number;
   hitCooldown: number;
+  blockTimer: number;
   color: string;
   accentColor: string;
   beltColor: string;

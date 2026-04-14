@@ -234,13 +234,13 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backShoulderX = shoulderX - 14;
     drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinDark, true, gloveCol);
 
-    // UCHI UKE blocking arm - forearm raised vertically across chest
-    // Elbow at ribcage height, fist up near opposite shoulder (forearm vertical)
+    // UCHI UKE blocking arm - forearm extended outward away from body
+    // Elbow away from torso, fist sweeps out to intercept
     const frontShoulderX = shoulderX + 14;
-    const blockElbowX = frontShoulderX + 4;
-    const blockElbowY = shoulderY + 18;
-    const blockFistX = frontShoulderX - 2;
-    const blockFistY = shoulderY - 2;
+    const blockElbowX = frontShoulderX + 18;
+    const blockElbowY = shoulderY + 14;
+    const blockFistX = frontShoulderX + 24;
+    const blockFistY = shoulderY - 6;
     drawArm(ctx, frontShoulderX, shoulderY + 4, blockElbowX, blockElbowY, blockFistX, blockFistY, giMain, skin, skinDark, true, gloveCol);
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
