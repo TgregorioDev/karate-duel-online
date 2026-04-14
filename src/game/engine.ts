@@ -322,7 +322,11 @@ export function updateAI(state: GameState) {
       }
       break;
     case 'block':
+      if (opp.state !== 'block') {
+        opp.blockTimer = 0;
+      }
       opp.state = 'block';
+      opp.blockTimer++;
       opp.velocityX = 0;
       break;
     default:
