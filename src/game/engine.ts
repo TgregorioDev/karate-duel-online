@@ -114,11 +114,16 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   // Block
   if (input.block && fighter.state !== 'punch' && fighter.state !== 'kick' && fighter.state !== 'hit') {
+    if (fighter.state !== 'block') {
+      fighter.blockTimer = 0; // start fresh
+    }
     fighter.state = 'block';
+    fighter.blockTimer++;
     fighter.velocityX = 0;
     return;
   } else if (fighter.state === 'block' && !input.block) {
     fighter.state = 'idle';
+    fighter.blockTimer = 0;
   }
 
   if (fighter.state === 'block') return;
@@ -189,8 +194,9 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
   if (dist > range) return;
 
-  // Blocked?
-  if (defender.state === 'block') {
+  // Blocked? Only effective if timed correctly (within first 12 frames)
+  const BLOCK_WINDOW = 12;
+  if (defender.state === 'block' && defender.blockTimer <= BLOCK_WINDOW) {
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 10, type: 'punch' };
     defender.stamina -= 5;
     return;
