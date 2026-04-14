@@ -6,7 +6,7 @@ import { GameState, InputState, CANVAS_WIDTH, CANVAS_HEIGHT, FIGHT_DURATION } fr
 export default function KarateGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState>(createInitialState());
-  const inputRef = useRef<InputState>({ left: false, right: false, punch: false, kick: false, block: false });
+  const inputRef = useRef<InputState>({ left: false, right: false, punch: false, kick: false, gyakuZuki: false, maeGeri: false, block: false });
   const animFrameRef = useRef<number>(0);
   const [, forceRender] = useState(0);
 
@@ -29,6 +29,8 @@ export default function KarateGame() {
         case 'arrowright': case 'd': inp.right = true; break;
         case 'z': case 'j': inp.punch = true; break;
         case 'x': case 'k': inp.kick = true; break;
+        case 'v': case 'n': inp.gyakuZuki = true; break;
+        case 'b': case 'm': inp.maeGeri = true; break;
         case 'c': case 'l': inp.block = true; break;
         case 'enter': case ' ':
           e.preventDefault();
@@ -43,6 +45,8 @@ export default function KarateGame() {
         case 'arrowright': case 'd': inp.right = false; break;
         case 'z': case 'j': inp.punch = false; break;
         case 'x': case 'k': inp.kick = false; break;
+        case 'v': case 'n': inp.gyakuZuki = false; break;
+        case 'b': case 'm': inp.maeGeri = false; break;
         case 'c': case 'l': inp.block = false; break;
       }
     };
@@ -72,6 +76,8 @@ export default function KarateGame() {
       // Reset one-shot inputs
       inputRef.current.punch = false;
       inputRef.current.kick = false;
+      inputRef.current.gyakuZuki = false;
+      inputRef.current.maeGeri = false;
 
       renderGame(ctx, gameStateRef.current);
       animFrameRef.current = requestAnimationFrame(loop);
@@ -97,10 +103,12 @@ export default function KarateGame() {
         }}
         tabIndex={0}
       />
-      <div className="flex gap-6 text-sm" style={{ color: 'hsl(40, 10%, 55%)' }}>
+      <div className="flex gap-4 text-xs flex-wrap justify-center" style={{ color: 'hsl(40, 10%, 55%)' }}>
         <span>← → Mover</span>
         <span>Z Soco</span>
+        <span>V Gyaku-zuki</span>
         <span>X Chute</span>
+        <span>B Mae-geri</span>
         <span>C Defesa</span>
       </div>
     </div>

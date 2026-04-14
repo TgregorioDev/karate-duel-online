@@ -209,6 +209,78 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
     drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
 
+  } else if (fState === 'gyaku-zuki') {
+    // GYAKU-ZUKI: Reverse punch from back hand targeting the torso (chudan level)
+    // Deep Zenkutsu-dachi, back hand punches forward to body height
+    const hipY = -36;
+    
+    // Back leg - fully extended
+    const backFootX = -34;
+    const backKneeX = -20;
+    const backKneeY = hipY + 18;
+    
+    // Front leg - deep lunge
+    const frontFootX = 26;
+    const frontKneeX = 22;
+    const frontKneeY = hipY + 12;
+
+    drawLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinDark, 13);
+    drawLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinDark, 13);
+
+    // Torso - deep hip rotation into the punch
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 6; // more rotation than regular punch
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // Front arm (now hikite - pulled back to hip)
+    const frontShoulderX = shoulderX + 14;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 4, shoulderY + 20, frontShoulderX + 2, hipY + 2, giMain, skin, skinDark, true, gloveCol);
+
+    // Back arm (punching forward - targeting torso/chudan level)
+    const backShoulderX = shoulderX - 14;
+    const punchReach = 52;
+    const punchElbowX = backShoulderX + punchReach * 0.45;
+    const punchElbowY = shoulderY + 14;
+    const punchFistX = backShoulderX + punchReach;
+    const punchFistY = shoulderY + 20; // chudan (torso) height
+    drawArm(ctx, backShoulderX, shoulderY + 4, punchElbowX, punchElbowY, punchFistX, punchFistY, giMain, skin, skinDark, false, gloveCol);
+
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
+
+  } else if (fState === 'mae-geri') {
+    // MAE-GERI: Front kick with back leg, straight forward (snap kick)
+    // Standing on front leg, back leg kicks straight forward at chudan/jodan level
+    const hipY = -40;
+    
+    // Standing leg (front leg) - slightly bent, weight-bearing
+    const standFootX = -8;
+    const standKneeX = -4;
+    const standKneeY = hipY + 18;
+    drawLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinDark, 12);
+
+    // Kicking leg (back leg) - extends straight forward, ball of foot strikes
+    // Thigh up, shin snaps straight forward at torso height
+    const kickKneeX = 16;
+    const kickKneeY = hipY - 8;
+    const kickFootX = 56;
+    const kickFootY = hipY - 14; // chudan height (torso level)
+
+    drawLegKick(ctx, 0, hipY, kickKneeX, kickKneeY, kickFootX, kickFootY, giMain, giFold, skin, skinDark);
+
+    // Torso - upright, slight lean back
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = -2;
+    drawTorsoBody(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // Arms - both in guard, fists up protecting face
+    const backShoulderX = shoulderX - 14;
+    drawArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 6, shoulderY + 14, backShoulderX - 2, shoulderY + 2, giMain, skin, skinDark, false, gloveCol);
+
+    const frontShoulderX = shoulderX + 14;
+    drawArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 8, shoulderY + 14, frontShoulderX + 4, shoulderY + 2, giMain, skin, skinDark, true, gloveCol);
+
+    drawHeadNew(ctx, shoulderX, shoulderY, fState, skin, skinDark, accentColor, headR);
+
   } else if (fState === 'block') {
     // UCHI UKE - inside forearm block
     // Deep Zenkutsu-dachi, blocking arm sweeps across body, hikite on opposite hip

@@ -1,8 +1,8 @@
 import {
   Fighter, GameState, InputState,
   CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
-  FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE,
-  STAMINA_MAX, STAMINA_REGEN, PUNCH_COST, KICK_COST,
+  FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE, GYAKU_ZUKI_RANGE, MAE_GERI_RANGE,
+  STAMINA_MAX, STAMINA_REGEN, PUNCH_COST, KICK_COST, GYAKU_ZUKI_COST, MAE_GERI_COST,
 } from './types';
 
 export function createFighter(x: number, facing: 'left' | 'right', color: string, accent: string, belt: string): Fighter {
@@ -44,8 +44,22 @@ export function resetPositions(state: GameState) {
   state.hitEffect = null;
 }
 
-const ATTACK_DURATION: Record<string, number> = { punch: 12, kick: 18 };
+const ATTACK_DURATION: Record<string, number> = {
+  punch: 12,
+  kick: 18,
+  'gyaku-zuki': 14,
+  'mae-geri': 16,
+};
 const HIT_STUN = 20;
+
+// Combo: if you chain attacks quickly, reduced stamina cost & faster startup
+const COMBO_WINDOW = 25; // frames after an attack ends where combo is possible
+const COMBO_SPEED_BONUS = 0.7; // duration multiplier
+const COMBO_STAMINA_BONUS = 0.8; // stamina cost multiplier
+
+function isAttackState(state: string): boolean {
+  return state === 'punch' || state === 'kick' || state === 'gyaku-zuki' || state === 'mae-geri';
+}
 
 export function updateGame(state: GameState, input: InputState, dt: number): GameState {
   if (state.gameStatus !== 'fighting' && state.gameStatus !== 'point-scored') return state;
@@ -54,7 +68,6 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
   if (state.judgeTimer > 0) {
     state.judgeTimer -= 1;
     if (state.judgeTimer <= 0 && state.gameStatus === 'point-scored') {
-      // Check win
       if (state.player.score >= MAX_SCORE || state.opponent.score >= MAX_SCORE) {
         state.gameStatus = 'game-over';
         state.winner = state.player.score >= MAX_SCORE ? 'player' : 'opponent';
@@ -111,13 +124,13 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     if (fighter.stateTimer <= 0 && fighter.state !== 'block') {
       fighter.state = 'idle';
     }
-    if (fighter.state === 'hit' || fighter.state === 'punch' || fighter.state === 'kick') return;
+    if (fighter.state === 'hit' || isAttackState(fighter.state)) return;
   }
 
   // Block
-  if (input.block && fighter.state !== 'punch' && fighter.state !== 'kick' && fighter.state !== 'hit') {
+  if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
     if (fighter.state !== 'block') {
-      fighter.blockTimer = 0; // start fresh
+      fighter.blockTimer = 0;
     }
     fighter.state = 'block';
     fighter.blockTimer++;
@@ -130,20 +143,49 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   if (fighter.state === 'block') return;
 
-  // Attack
-  if (input.punch && fighter.stateTimer <= 0 && fighter.stamina >= PUNCH_COST && fighter.hitCooldown <= 0) {
-    fighter.state = 'punch';
-    fighter.stateTimer = ATTACK_DURATION.punch;
-    fighter.stamina -= PUNCH_COST;
-    fighter.velocityX = 0;
-    return;
+  // Check if in combo window (hitCooldown is set after attacks land, but we use stateTimer transition)
+  const inCombo = fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW;
+
+  // Attacks - check all four, combo-aware
+  if (input.punch && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+    const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
+    if (fighter.stamina >= cost) {
+      fighter.state = 'punch';
+      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.punch * COMBO_SPEED_BONUS) : ATTACK_DURATION.punch;
+      fighter.stamina -= cost;
+      fighter.velocityX = 0;
+      return;
+    }
   }
-  if (input.kick && fighter.stateTimer <= 0 && fighter.stamina >= KICK_COST && fighter.hitCooldown <= 0) {
-    fighter.state = 'kick';
-    fighter.stateTimer = ATTACK_DURATION.kick;
-    fighter.stamina -= KICK_COST;
-    fighter.velocityX = 0;
-    return;
+  if (input.gyakuZuki && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+    const cost = inCombo ? GYAKU_ZUKI_COST * COMBO_STAMINA_BONUS : GYAKU_ZUKI_COST;
+    if (fighter.stamina >= cost) {
+      fighter.state = 'gyaku-zuki';
+      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['gyaku-zuki'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['gyaku-zuki'];
+      fighter.stamina -= cost;
+      fighter.velocityX = 0;
+      return;
+    }
+  }
+  if (input.kick && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+    const cost = inCombo ? KICK_COST * COMBO_STAMINA_BONUS : KICK_COST;
+    if (fighter.stamina >= cost) {
+      fighter.state = 'kick';
+      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.kick * COMBO_SPEED_BONUS) : ATTACK_DURATION.kick;
+      fighter.stamina -= cost;
+      fighter.velocityX = 0;
+      return;
+    }
+  }
+  if (input.maeGeri && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+    const cost = inCombo ? MAE_GERI_COST * COMBO_STAMINA_BONUS : MAE_GERI_COST;
+    if (fighter.stamina >= cost) {
+      fighter.state = 'mae-geri';
+      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['mae-geri'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['mae-geri'];
+      fighter.stamina -= cost;
+      fighter.velocityX = 0;
+      return;
+    }
   }
 
   // Movement
@@ -183,15 +225,25 @@ function checkHits(state: GameState) {
   }
 }
 
+function getAttackRange(state: string): number {
+  switch (state) {
+    case 'punch': return PUNCH_RANGE;
+    case 'kick': return KICK_RANGE;
+    case 'gyaku-zuki': return GYAKU_ZUKI_RANGE;
+    case 'mae-geri': return MAE_GERI_RANGE;
+    default: return 0;
+  }
+}
+
 function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'player' | 'opponent', state: GameState) {
-  if (attacker.state !== 'punch' && attacker.state !== 'kick') return;
+  if (!isAttackState(attacker.state)) return;
   
   // Only check on the "hit frame" (middle of animation)
-  const duration = attacker.state === 'punch' ? ATTACK_DURATION.punch : ATTACK_DURATION.kick;
+  const duration = ATTACK_DURATION[attacker.state] || 12;
   const hitFrame = Math.floor(duration / 2);
   if (attacker.stateTimer !== hitFrame) return;
 
-  const range = attacker.state === 'punch' ? PUNCH_RANGE : KICK_RANGE;
+  const range = getAttackRange(attacker.state);
   const dist = Math.abs(attacker.x - defender.x);
 
   if (dist > range) return;
@@ -209,11 +261,15 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
   defender.stateTimer = HIT_STUN;
   defender.hitCooldown = 10;
   
+  // Set attacker hitCooldown for combo window tracking
+  attacker.hitCooldown = COMBO_WINDOW;
+  
+  const isKickType = attacker.state === 'kick' || attacker.state === 'mae-geri';
   state.hitEffect = {
     x: (attacker.x + defender.x) / 2,
     y: GROUND_Y - 70,
     timer: 15,
-    type: attacker.state === 'kick' ? 'kick' : 'punch',
+    type: isKickType ? 'kick' : 'punch',
   };
 
   // Score point
@@ -233,7 +289,7 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
 // ===== AI =====
 let aiActionTimer = 0;
-let aiAction: 'idle' | 'advance' | 'retreat' | 'punch' | 'kick' | 'block' = 'idle';
+let aiAction: 'idle' | 'advance' | 'retreat' | 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | 'block' = 'idle';
 
 export function updateAI(state: GameState) {
   const opp = state.opponent;
@@ -245,7 +301,7 @@ export function updateAI(state: GameState) {
   if (opp.stateTimer > 0) {
     opp.stateTimer--;
     if (opp.stateTimer <= 0 && opp.state !== 'block') opp.state = 'idle';
-    if (opp.state === 'hit' || opp.state === 'punch' || opp.state === 'kick') return;
+    if (opp.state === 'hit' || isAttackState(opp.state)) return;
   }
 
   const dist = Math.abs(opp.x - player.x);
@@ -253,10 +309,9 @@ export function updateAI(state: GameState) {
 
   aiActionTimer--;
   if (aiActionTimer <= 0) {
-    // Decide action
     const rand = Math.random();
     
-    if (player.state === 'punch' || player.state === 'kick') {
+    if (isAttackState(player.state)) {
       // React to player attack
       if (rand < diff * 0.7) {
         aiAction = 'block';
@@ -268,10 +323,14 @@ export function updateAI(state: GameState) {
         aiAction = 'idle';
         aiActionTimer = 10;
       }
-    } else if (dist < PUNCH_RANGE + 10 && opp.stamina >= PUNCH_COST) {
-      // In range - attack
+    } else if (dist < GYAKU_ZUKI_RANGE + 10 && opp.stamina >= GYAKU_ZUKI_COST) {
+      // Close range - use variety of attacks
       if (rand < diff * 0.5) {
-        aiAction = rand < diff * 0.25 ? 'kick' : 'punch';
+        const attackRoll = Math.random();
+        if (attackRoll < 0.3) aiAction = 'punch';
+        else if (attackRoll < 0.55) aiAction = 'gyaku-zuki';
+        else if (attackRoll < 0.8) aiAction = 'kick';
+        else aiAction = 'mae-geri';
         aiActionTimer = 8;
       } else {
         aiAction = Math.random() < 0.5 ? 'retreat' : 'block';
@@ -279,14 +338,13 @@ export function updateAI(state: GameState) {
       }
     } else if (dist < KICK_RANGE + 20 && opp.stamina >= KICK_COST) {
       if (rand < diff * 0.4) {
-        aiAction = 'kick';
+        aiAction = Math.random() < 0.5 ? 'kick' : 'mae-geri';
         aiActionTimer = 10;
       } else {
         aiAction = 'advance';
         aiActionTimer = 15;
       }
     } else {
-      // Far - approach
       aiAction = rand < 0.7 ? 'advance' : 'idle';
       aiActionTimer = 20 + Math.floor(Math.random() * 20);
     }
@@ -314,11 +372,29 @@ export function updateAI(state: GameState) {
         aiAction = 'idle';
       }
       break;
+    case 'gyaku-zuki':
+      if (opp.stateTimer <= 0 && opp.stamina >= GYAKU_ZUKI_COST && opp.hitCooldown <= 0) {
+        opp.state = 'gyaku-zuki';
+        opp.stateTimer = ATTACK_DURATION['gyaku-zuki'];
+        opp.stamina -= GYAKU_ZUKI_COST;
+        opp.velocityX = 0;
+        aiAction = 'idle';
+      }
+      break;
     case 'kick':
       if (opp.stateTimer <= 0 && opp.stamina >= KICK_COST && opp.hitCooldown <= 0) {
         opp.state = 'kick';
         opp.stateTimer = ATTACK_DURATION.kick;
         opp.stamina -= KICK_COST;
+        opp.velocityX = 0;
+        aiAction = 'idle';
+      }
+      break;
+    case 'mae-geri':
+      if (opp.stateTimer <= 0 && opp.stamina >= MAE_GERI_COST && opp.hitCooldown <= 0) {
+        opp.state = 'mae-geri';
+        opp.stateTimer = ATTACK_DURATION['mae-geri'];
+        opp.stamina -= MAE_GERI_COST;
         opp.velocityX = 0;
         aiAction = 'idle';
       }
