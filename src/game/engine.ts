@@ -10,7 +10,7 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
     x, y: GROUND_Y, width: FIGHTER_WIDTH, height: 120,
     velocityX: 0, health: 100, score: 0,
     facing, state: 'idle', stateTimer: 0,
-    stamina: STAMINA_MAX, hitCooldown: 0,
+    stamina: STAMINA_MAX, hitCooldown: 0, blockTimer: 0,
     color, accentColor: accent, beltColor: belt,
   };
 }
@@ -39,6 +39,8 @@ export function resetPositions(state: GameState) {
   state.opponent.stateTimer = 0;
   state.player.stamina = STAMINA_MAX;
   state.opponent.stamina = STAMINA_MAX;
+  state.player.blockTimer = 0;
+  state.opponent.blockTimer = 0;
   state.hitEffect = null;
 }
 
@@ -114,11 +116,16 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   // Block
   if (input.block && fighter.state !== 'punch' && fighter.state !== 'kick' && fighter.state !== 'hit') {
+    if (fighter.state !== 'block') {
+      fighter.blockTimer = 0; // start fresh
+    }
     fighter.state = 'block';
+    fighter.blockTimer++;
     fighter.velocityX = 0;
     return;
   } else if (fighter.state === 'block' && !input.block) {
     fighter.state = 'idle';
+    fighter.blockTimer = 0;
   }
 
   if (fighter.state === 'block') return;
@@ -189,8 +196,9 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
   if (dist > range) return;
 
-  // Blocked?
-  if (defender.state === 'block') {
+  // Blocked? Only effective if timed correctly (within first 12 frames)
+  const BLOCK_WINDOW = 12;
+  if (defender.state === 'block' && defender.blockTimer <= BLOCK_WINDOW) {
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 10, type: 'punch' };
     defender.stamina -= 5;
     return;
@@ -316,7 +324,11 @@ export function updateAI(state: GameState) {
       }
       break;
     case 'block':
+      if (opp.state !== 'block') {
+        opp.blockTimer = 0;
+      }
       opp.state = 'block';
+      opp.blockTimer++;
       opp.velocityX = 0;
       break;
     default:
