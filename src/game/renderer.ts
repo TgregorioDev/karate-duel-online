@@ -394,7 +394,7 @@ function drawAnimeLegKick(
   giCol: string, foldCol: string,
   skinCol: string, skinDarkCol: string,
 ) {
-  const limbW = 13;
+  const limbW = 18;
 
   const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
   const perpX = Math.sin(thighAngle) * limbW / 2;
