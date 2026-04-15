@@ -590,8 +590,8 @@ function drawAnimeTorso(
   shoulderX: number, shoulderY: number,
   giMain: string, giShade: string, giFold: string, beltCol: string
 ) {
-  const shoulderW = 46;
-  const waistW = 32;
+  const shoulderW = 42;
+  const waistW = 28;
 
   // Shadow layer
   ctx.fillStyle = giShade;
