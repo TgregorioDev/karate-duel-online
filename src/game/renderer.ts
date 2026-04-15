@@ -136,12 +136,12 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   ctx.ellipse(0, 4, 44, 7, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const thighLen = 38;
-  const shinLen = 36;
-  const torsoLen = 44;
-  const upperArmLen = 24;
-  const forearmLen = 22;
-  const headR = 14; // Bigger head for anime
+  const thighLen = 40;
+  const shinLen = 38;
+  const torsoLen = 48;
+  const upperArmLen = 26;
+  const forearmLen = 24;
+  const headR = 13;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
     const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) * 0.15 : 0;
@@ -155,18 +155,18 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const frontKneeY = hipY - Math.sin(frontHipAngle) * thighLen;
     const frontFootX = frontKneeX + 6;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 13);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 13);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
 
     const shoulderY = hipY - torsoLen;
     const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 6, shoulderY + 18, backShoulderX - 2, hipY + 2, giMain, skin, skinShade, false, gloveCol);
+    const backShoulderX = shoulderX - 20;
+    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 20, backShoulderX - 4, hipY + 2, giMain, skin, skinShade, false, gloveCol);
 
-    const frontShoulderX = shoulderX + 14;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 12, shoulderY + 16, frontShoulderX + 8, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
+    const frontShoulderX = shoulderX + 20;
+    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 14, shoulderY + 18, frontShoulderX + 10, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
@@ -175,17 +175,17 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backFootX = -32; const backKneeX = -18; const backKneeY = hipY + 18;
     const frontFootX = 28; const frontKneeX = 22; const frontKneeY = hipY + 14;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 13);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 13);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 4;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
+    const backShoulderX = shoulderX - 20;
     drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinShade, false, gloveCol);
 
-    const frontShoulderX = shoulderX + 14;
-    const punchReach = 55;
+    const frontShoulderX = shoulderX + 20;
+    const punchReach = 58;
     drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + punchReach * 0.5, shoulderY + 6, frontShoulderX + punchReach, shoulderY + 8, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
@@ -193,7 +193,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   } else if (fState === 'kick') {
     const hipY = -42;
     const standFootX = -10; const standKneeX = -6; const standKneeY = hipY + 20;
-    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 12);
+    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 17);
 
     const kickKneeX = 18; const kickKneeY = hipY - 20;
     const kickFootX = 62; const kickFootY = hipY - torsoLen + 10;
@@ -202,9 +202,9 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = -4;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
+    const backShoulderX = shoulderX - 20;
     drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 16, backShoulderX - 4, hipY, giMain, skin, skinShade, false, gloveCol);
-    const frontShoulderX = shoulderX + 14;
+    const frontShoulderX = shoulderX + 20;
     drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 6, shoulderY + 14, frontShoulderX + 2, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
@@ -214,17 +214,17 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backFootX = -34; const backKneeX = -20; const backKneeY = hipY + 18;
     const frontFootX = 26; const frontKneeX = 22; const frontKneeY = hipY + 12;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 13);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 13);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 6;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const frontShoulderX = shoulderX + 14;
+    const frontShoulderX = shoulderX + 20;
     drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 4, shoulderY + 20, frontShoulderX + 2, hipY + 2, giMain, skin, skinShade, true, gloveCol);
 
-    const backShoulderX = shoulderX - 14;
-    const punchReach = 52;
+    const backShoulderX = shoulderX - 20;
+    const punchReach = 55;
     drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX + punchReach * 0.45, shoulderY + 14, backShoulderX + punchReach, shoulderY + 20, giMain, skin, skinShade, false, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
@@ -232,7 +232,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   } else if (fState === 'mae-geri') {
     const hipY = -40;
     const standFootX = -8; const standKneeX = -4; const standKneeY = hipY + 18;
-    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 12);
+    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 17);
 
     const kickKneeX = 16; const kickKneeY = hipY - 8;
     const kickFootX = 56; const kickFootY = hipY - 14;
@@ -241,9 +241,9 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = -2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
+    const backShoulderX = shoulderX - 20;
     drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 6, shoulderY + 14, backShoulderX - 2, shoulderY + 2, giMain, skin, skinShade, false, gloveCol);
-    const frontShoulderX = shoulderX + 14;
+    const frontShoulderX = shoulderX + 20;
     drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 8, shoulderY + 14, frontShoulderX + 4, shoulderY + 2, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
@@ -253,17 +253,17 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backFootX = -28; const backKneeX = -16; const backKneeY = hipY + 20;
     const frontFootX = 24; const frontKneeX = 20; const frontKneeY = hipY + 14;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 12);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 12);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 17);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 17);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
+    const backShoulderX = shoulderX - 20;
     drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinShade, true, gloveCol);
 
-    const frontShoulderX = shoulderX + 14;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 18, shoulderY + 14, frontShoulderX + 24, shoulderY - 6, giMain, skin, skinShade, true, gloveCol);
+    const frontShoulderX = shoulderX + 20;
+    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 20, shoulderY + 14, frontShoulderX + 26, shoulderY - 6, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
@@ -272,27 +272,27 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const backFootX = -14; const backKneeX = -10; const backKneeY = hipY + 18;
     const frontFootX = 10; const frontKneeX = 8; const frontKneeY = hipY + 20;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 11);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 11);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 16);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 16);
 
     const shoulderY = hipY - torsoLen + 6; const shoulderX = -6;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawAnimeArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 22, shoulderY + 14, shoulderX - 18, shoulderY + 24, giMain, skin, skinShade, false, gloveCol);
-    drawAnimeArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 20, shoulderY + 12, shoulderX + 16, shoulderY + 22, giMain, skin, skinShade, false, gloveCol);
+    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 4, shoulderX - 28, shoulderY + 14, shoulderX - 24, shoulderY + 24, giMain, skin, skinShade, false, gloveCol);
+    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 4, shoulderX + 26, shoulderY + 12, shoulderX + 22, shoulderY + 22, giMain, skin, skinShade, false, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'victory') {
     const hipY = -42;
-    drawAnimeLeg(ctx, 0, hipY, -6, hipY + 20, -10, 0, giMain, giFold, skin, skinShade, 12);
-    drawAnimeLeg(ctx, 0, hipY, 6, hipY + 20, 10, 0, giMain, giFold, skin, skinShade, 12);
+    drawAnimeLeg(ctx, 0, hipY, -6, hipY + 20, -10, 0, giMain, giFold, skin, skinShade, 17);
+    drawAnimeLeg(ctx, 0, hipY, 6, hipY + 20, 10, 0, giMain, giFold, skin, skinShade, 17);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 0;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawAnimeArm(ctx, shoulderX - 14, shoulderY + 4, shoulderX - 20, shoulderY - 20, shoulderX - 16, shoulderY - 36, giMain, skin, skinShade, true, gloveCol);
-    drawAnimeArm(ctx, shoulderX + 14, shoulderY + 4, shoulderX + 22, shoulderY - 22, shoulderX + 18, shoulderY - 38, giMain, skin, skinShade, true, gloveCol);
+    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 4, shoulderX - 26, shoulderY - 20, shoulderX - 22, shoulderY - 36, giMain, skin, skinShade, true, gloveCol);
+    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 4, shoulderX + 28, shoulderY - 22, shoulderX + 24, shoulderY - 38, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
   }
@@ -394,7 +394,7 @@ function drawAnimeLegKick(
   giCol: string, foldCol: string,
   skinCol: string, skinDarkCol: string,
 ) {
-  const limbW = 13;
+  const limbW = 18;
 
   const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
   const perpX = Math.sin(thighAngle) * limbW / 2;
@@ -471,7 +471,7 @@ function drawAnimeArm(
   isFist: boolean,
   gloveColor?: string
 ) {
-  const armW = 9;
+  const armW = 14;
 
   // Upper arm
   const uAngle = Math.atan2(elbowY - shoulderY, elbowX - shoulderX);
@@ -491,7 +491,7 @@ function drawAnimeArm(
   ctx.stroke();
 
   // Forearm
-  const fArmW = 7;
+  const fArmW = 11;
   const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
   const fPx = Math.sin(fAngle) * fArmW / 2;
   const fPy = -Math.cos(fAngle) * fArmW / 2;
@@ -508,7 +508,7 @@ function drawAnimeArm(
 
   // Glove with anime shine
   if (gloveColor) {
-    const gloveR = isFist ? 8 : 7;
+    const gloveR = isFist ? 10 : 9;
     ctx.fillStyle = gloveColor;
     ctx.strokeStyle = OUTLINE_COL;
     ctx.lineWidth = OUTLINE_W;
@@ -546,8 +546,8 @@ function drawAnimeTorso(
   shoulderX: number, shoulderY: number,
   giMain: string, giShade: string, giFold: string, beltCol: string
 ) {
-  const shoulderW = 34;
-  const waistW = 24;
+  const shoulderW = 46;
+  const waistW = 32;
 
   // Shadow layer
   ctx.fillStyle = giShade;
@@ -583,16 +583,52 @@ function drawAnimeTorso(
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Lapel V
+  // Pectoral muscle lines visible through gi
+  ctx.strokeStyle = giFold;
+  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = 0.4;
+  // Left pec
+  ctx.beginPath();
+  ctx.moveTo(shoulderX - shoulderW / 2 + 4, shoulderY + 6);
+  ctx.quadraticCurveTo(shoulderX - 4, shoulderY + 14, shoulderX - 2, shoulderY + 18);
+  ctx.stroke();
+  // Right pec
+  ctx.beginPath();
+  ctx.moveTo(shoulderX + shoulderW / 2 - 4, shoulderY + 6);
+  ctx.quadraticCurveTo(shoulderX + 4, shoulderY + 14, shoulderX + 2, shoulderY + 18);
+  ctx.stroke();
+  // Center chest line
+  ctx.beginPath();
+  ctx.moveTo(shoulderX, shoulderY + 4);
+  ctx.lineTo(shoulderX, shoulderY + 22);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Shoulder cap / deltoid bumps
+  ctx.fillStyle = giMain;
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = OUTLINE_W;
+  // Left deltoid
+  ctx.beginPath();
+  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Right deltoid
+  ctx.beginPath();
+  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Lapel V — wider for bigger torso
   ctx.fillStyle = giShade;
   const lapelCY = (shoulderY + hipY) / 2 + 8;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - 6, shoulderY + 2);
+  ctx.moveTo(shoulderX - 8, shoulderY + 2);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY);
-  ctx.lineTo(shoulderX + 8, shoulderY + 2);
-  ctx.lineTo(shoulderX + 4, shoulderY + 2);
+  ctx.lineTo(shoulderX + 10, shoulderY + 2);
+  ctx.lineTo(shoulderX + 6, shoulderY + 2);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 6);
-  ctx.lineTo(shoulderX - 2, shoulderY + 2);
+  ctx.lineTo(shoulderX - 4, shoulderY + 2);
   ctx.closePath();
   ctx.fill();
 
@@ -600,9 +636,9 @@ function drawAnimeTorso(
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - 5, shoulderY + 3);
+  ctx.moveTo(shoulderX - 7, shoulderY + 3);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 2);
-  ctx.lineTo(shoulderX + 7, shoulderY + 3);
+  ctx.lineTo(shoulderX + 9, shoulderY + 3);
   ctx.stroke();
 
   // Belt
