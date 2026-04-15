@@ -487,7 +487,7 @@ function drawAnimeLegKick(
   ctx.restore();
 }
 
-// ============ ANIME ARM (with outline) ============
+// ============ ARM (with bicep/forearm muscle curves) ============
 function drawAnimeArm(
   ctx: CanvasRenderingContext2D,
   shoulderX: number, shoulderY: number,
@@ -497,44 +497,68 @@ function drawAnimeArm(
   isFist: boolean,
   gloveColor?: string
 ) {
-  const armW = 14;
+  const armW = 12;
 
-  // Upper arm
+  // Upper arm with bicep bulge
   const uAngle = Math.atan2(elbowY - shoulderY, elbowX - shoulderX);
-  const uPx = Math.sin(uAngle) * armW / 2;
-  const uPy = -Math.cos(uAngle) * armW / 2;
+  const uPx = Math.sin(uAngle);
+  const uPy = -Math.cos(uAngle);
+  const midUX = (shoulderX + elbowX) / 2;
+  const midUY = (shoulderY + elbowY) / 2;
 
   ctx.fillStyle = giCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(shoulderX + uPx, shoulderY + uPy);
-  ctx.lineTo(elbowX + uPx * 0.9, elbowY + uPy * 0.9);
-  ctx.lineTo(elbowX - uPx * 0.9, elbowY - uPy * 0.9);
-  ctx.lineTo(shoulderX - uPx, shoulderY - uPy);
+  ctx.moveTo(shoulderX + uPx * armW / 2, shoulderY + uPy * armW / 2);
+  ctx.quadraticCurveTo(
+    midUX + uPx * (armW / 2 + 2), midUY + uPy * (armW / 2 + 2),
+    elbowX + uPx * (armW * 0.4), elbowY + uPy * (armW * 0.4)
+  );
+  ctx.lineTo(elbowX - uPx * (armW * 0.4), elbowY - uPy * (armW * 0.4));
+  ctx.quadraticCurveTo(
+    midUX - uPx * (armW / 2 + 1), midUY - uPy * (armW / 2 + 1),
+    shoulderX - uPx * armW / 2, shoulderY - uPy * armW / 2
+  );
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Forearm
-  const fArmW = 11;
-  const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
-  const fPx = Math.sin(fAngle) * fArmW / 2;
-  const fPy = -Math.cos(fAngle) * fArmW / 2;
-
+  // Elbow joint
   ctx.fillStyle = skinCol;
   ctx.beginPath();
-  ctx.moveTo(elbowX + fPx, elbowY + fPy);
-  ctx.lineTo(fistX + fPx * 0.8, fistY + fPy * 0.8);
-  ctx.lineTo(fistX - fPx * 0.8, fistY - fPy * 0.8);
-  ctx.lineTo(elbowX - fPx, elbowY - fPy);
+  ctx.arc(elbowX, elbowY, armW * 0.32, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Forearm with muscle taper
+  const fArmW = 10;
+  const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
+  const fPx = Math.sin(fAngle);
+  const fPy = -Math.cos(fAngle);
+  const midFX = (elbowX + fistX) * 0.4 + elbowX * 0.1;
+  const midFY = (elbowY + fistY) * 0.4 + elbowY * 0.1;
+
+  ctx.fillStyle = skinCol;
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = OUTLINE_W;
+  ctx.beginPath();
+  ctx.moveTo(elbowX + fPx * fArmW / 2, elbowY + fPy * fArmW / 2);
+  ctx.quadraticCurveTo(
+    midFX + fPx * (fArmW / 2 + 1), midFY + fPy * (fArmW / 2 + 1),
+    fistX + fPx * (fArmW * 0.35), fistY + fPy * (fArmW * 0.35)
+  );
+  ctx.lineTo(fistX - fPx * (fArmW * 0.35), fistY - fPy * (fArmW * 0.35));
+  ctx.quadraticCurveTo(
+    midFX - fPx * (fArmW / 2), midFY - fPy * (fArmW / 2),
+    elbowX - fPx * fArmW / 2, elbowY - fPy * fArmW / 2
+  );
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Glove with anime shine
+  // Glove
   if (gloveColor) {
-    const gloveR = isFist ? 10 : 9;
+    const gloveR = isFist ? 9 : 8;
     ctx.fillStyle = gloveColor;
     ctx.strokeStyle = OUTLINE_COL;
     ctx.lineWidth = OUTLINE_W;
@@ -543,16 +567,10 @@ function drawAnimeArm(
     ctx.fill();
     ctx.stroke();
 
-    // Anime highlight (sharp white crescent)
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.beginPath();
-    ctx.arc(fistX - 2, fistY - 3, gloveR * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Second smaller highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath();
-    ctx.arc(fistX + 1, fistY - 1, gloveR * 0.2, 0, Math.PI * 2);
+    ctx.arc(fistX - 2, fistY - 3, gloveR * 0.35, 0, Math.PI * 2);
     ctx.fill();
   } else {
     ctx.fillStyle = skinDarkCol;
