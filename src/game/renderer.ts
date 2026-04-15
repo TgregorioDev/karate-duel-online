@@ -583,16 +583,52 @@ function drawAnimeTorso(
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Lapel V
+  // Pectoral muscle lines visible through gi
+  ctx.strokeStyle = giFold;
+  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = 0.4;
+  // Left pec
+  ctx.beginPath();
+  ctx.moveTo(shoulderX - shoulderW / 2 + 4, shoulderY + 6);
+  ctx.quadraticCurveTo(shoulderX - 4, shoulderY + 14, shoulderX - 2, shoulderY + 18);
+  ctx.stroke();
+  // Right pec
+  ctx.beginPath();
+  ctx.moveTo(shoulderX + shoulderW / 2 - 4, shoulderY + 6);
+  ctx.quadraticCurveTo(shoulderX + 4, shoulderY + 14, shoulderX + 2, shoulderY + 18);
+  ctx.stroke();
+  // Center chest line
+  ctx.beginPath();
+  ctx.moveTo(shoulderX, shoulderY + 4);
+  ctx.lineTo(shoulderX, shoulderY + 22);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Shoulder cap / deltoid bumps
+  ctx.fillStyle = giMain;
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = OUTLINE_W;
+  // Left deltoid
+  ctx.beginPath();
+  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Right deltoid
+  ctx.beginPath();
+  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Lapel V — wider for bigger torso
   ctx.fillStyle = giShade;
   const lapelCY = (shoulderY + hipY) / 2 + 8;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - 6, shoulderY + 2);
+  ctx.moveTo(shoulderX - 8, shoulderY + 2);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY);
-  ctx.lineTo(shoulderX + 8, shoulderY + 2);
-  ctx.lineTo(shoulderX + 4, shoulderY + 2);
+  ctx.lineTo(shoulderX + 10, shoulderY + 2);
+  ctx.lineTo(shoulderX + 6, shoulderY + 2);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 6);
-  ctx.lineTo(shoulderX - 2, shoulderY + 2);
+  ctx.lineTo(shoulderX - 4, shoulderY + 2);
   ctx.closePath();
   ctx.fill();
 
@@ -600,9 +636,9 @@ function drawAnimeTorso(
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - 5, shoulderY + 3);
+  ctx.moveTo(shoulderX - 7, shoulderY + 3);
   ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 2);
-  ctx.lineTo(shoulderX + 7, shoulderY + 3);
+  ctx.lineTo(shoulderX + 9, shoulderY + 3);
   ctx.stroke();
 
   // Belt
