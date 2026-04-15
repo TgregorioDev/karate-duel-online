@@ -321,7 +321,7 @@ function drawSpeedLines(ctx: CanvasRenderingContext2D, fState: string) {
   ctx.restore();
 }
 
-// ============ ANIME LEG (with outline) ============
+// ============ LEG (tapered, muscular) ============
 function drawAnimeLeg(
   ctx: CanvasRenderingContext2D,
   hipX: number, hipY: number,
@@ -332,60 +332,80 @@ function drawAnimeLeg(
   limbW: number
 ) {
   const thighW = limbW;
-  const shinW = limbW - 2;
+  const shinW = limbW - 3;
+  const calfBulge = 2; // slight calf muscle curve
 
-  // Thigh
+  // Thigh — tapered from hip to knee
   const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
-  const perpX = Math.sin(thighAngle) * thighW / 2;
-  const perpY = -Math.cos(thighAngle) * thighW / 2;
+  const perpX = Math.sin(thighAngle);
+  const perpY = -Math.cos(thighAngle);
 
-  // Outline
+  ctx.fillStyle = giCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
-  ctx.fillStyle = giCol;
+
+  // Thigh with slight quad bulge
+  const midThX = (hipX + kneeX) / 2;
+  const midThY = (hipY + kneeY) / 2;
   ctx.beginPath();
-  ctx.moveTo(hipX + perpX, hipY + perpY);
-  ctx.lineTo(kneeX + perpX * 0.9, kneeY + perpY * 0.9);
-  ctx.lineTo(kneeX - perpX * 0.9, kneeY - perpY * 0.9);
-  ctx.lineTo(hipX - perpX, hipY - perpY);
+  ctx.moveTo(hipX + perpX * thighW / 2, hipY + perpY * thighW / 2);
+  ctx.quadraticCurveTo(
+    midThX + perpX * (thighW / 2 + 2), midThY + perpY * (thighW / 2 + 2),
+    kneeX + perpX * (thighW * 0.4), kneeY + perpY * (thighW * 0.4)
+  );
+  ctx.lineTo(kneeX - perpX * (thighW * 0.4), kneeY - perpY * (thighW * 0.4));
+  ctx.quadraticCurveTo(
+    midThX - perpX * (thighW / 2 + 1), midThY - perpY * (thighW / 2 + 1),
+    hipX - perpX * thighW / 2, hipY - perpY * thighW / 2
+  );
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Shin
+  // Shin — tapered with calf bulge
   const shinAngle = Math.atan2(footY - kneeY, footX - kneeX);
-  const sPerpX = Math.sin(shinAngle) * shinW / 2;
-  const sPerpY = -Math.cos(shinAngle) * shinW / 2;
+  const sPx = Math.sin(shinAngle);
+  const sPy = -Math.cos(shinAngle);
+  const midShX = (kneeX + footX) * 0.4 + kneeX * 0.1;
+  const midShY = (kneeY + footY) * 0.4 + kneeY * 0.1;
+
   ctx.fillStyle = giCol;
   ctx.beginPath();
-  ctx.moveTo(kneeX + sPerpX, kneeY + sPerpY);
-  ctx.lineTo(footX + sPerpX * 0.7, footY + sPerpY * 0.7);
-  ctx.lineTo(footX - sPerpX * 0.7, footY - sPerpY * 0.7);
-  ctx.lineTo(kneeX - sPerpX, kneeY - sPerpY);
+  ctx.moveTo(kneeX + sPx * shinW / 2, kneeY + sPy * shinW / 2);
+  ctx.quadraticCurveTo(
+    midShX + sPx * (shinW / 2 + calfBulge), midShY + sPy * (shinW / 2 + calfBulge),
+    footX + sPx * (shinW * 0.3), footY + sPy * (shinW * 0.3)
+  );
+  ctx.lineTo(footX - sPx * (shinW * 0.3), footY - sPy * (shinW * 0.3));
+  ctx.quadraticCurveTo(
+    midShX - sPx * (shinW / 2), midShY - sPy * (shinW / 2),
+    kneeX - sPx * shinW / 2, kneeY - sPy * shinW / 2
+  );
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Cel-shade fold on knee
-  ctx.strokeStyle = foldCol;
-  ctx.lineWidth = 1.2;
+  // Knee joint circle
+  ctx.fillStyle = giCol;
   ctx.beginPath();
-  ctx.moveTo(kneeX + perpX * 0.5, kneeY + perpY * 0.5);
-  ctx.lineTo(kneeX - perpX * 0.5, kneeY - perpY * 0.5);
+  ctx.arc(kneeX, kneeY, thighW * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = foldCol;
+  ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Foot with outline
+  // Foot
   ctx.fillStyle = skinCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   const footDir = footX > kneeX ? 1 : (footX < kneeX ? -1 : 1);
   ctx.beginPath();
-  ctx.ellipse(footX + footDir * 4, footY, 7, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(footX + footDir * 5, footY, 9, 4.5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 }
 
-// ============ ANIME LEG KICK ============
+// ============ LEG KICK (tapered, muscular) ============
 function drawAnimeLegKick(
   ctx: CanvasRenderingContext2D,
   hipX: number, hipY: number,
@@ -394,69 +414,75 @@ function drawAnimeLegKick(
   giCol: string, foldCol: string,
   skinCol: string, skinDarkCol: string,
 ) {
-  const limbW = 18;
+  const limbW = 16;
 
   const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
-  const perpX = Math.sin(thighAngle) * limbW / 2;
-  const perpY = -Math.cos(thighAngle) * limbW / 2;
+  const perpX = Math.sin(thighAngle);
+  const perpY = -Math.cos(thighAngle);
+
+  const midThX = (hipX + kneeX) / 2;
+  const midThY = (hipY + kneeY) / 2;
 
   ctx.fillStyle = giCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(hipX + perpX, hipY + perpY);
-  ctx.lineTo(kneeX + perpX, kneeY + perpY);
-  ctx.lineTo(kneeX - perpX, kneeY - perpY);
-  ctx.lineTo(hipX - perpX, hipY - perpY);
+  ctx.moveTo(hipX + perpX * limbW / 2, hipY + perpY * limbW / 2);
+  ctx.quadraticCurveTo(
+    midThX + perpX * (limbW / 2 + 2), midThY + perpY * (limbW / 2 + 2),
+    kneeX + perpX * (limbW * 0.4), kneeY + perpY * (limbW * 0.4)
+  );
+  ctx.lineTo(kneeX - perpX * (limbW * 0.4), kneeY - perpY * (limbW * 0.4));
+  ctx.quadraticCurveTo(
+    midThX - perpX * (limbW / 2 + 1), midThY - perpY * (limbW / 2 + 1),
+    hipX - perpX * limbW / 2, hipY - perpY * limbW / 2
+  );
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  const shinW = limbW - 1;
+  // Shin
+  const shinW = limbW - 2;
   const shinAngle = Math.atan2(footY - kneeY, footX - kneeX);
-  const sPerpX = Math.sin(shinAngle) * shinW / 2;
-  const sPerpY = -Math.cos(shinAngle) * shinW / 2;
+  const sPx = Math.sin(shinAngle);
+  const sPy = -Math.cos(shinAngle);
+
   ctx.fillStyle = giCol;
   ctx.beginPath();
-  ctx.moveTo(kneeX + sPerpX, kneeY + sPerpY);
-  ctx.lineTo(footX + sPerpX * 0.6, footY + sPerpY * 0.6);
-  ctx.lineTo(footX - sPerpX * 0.6, footY - sPerpY * 0.6);
-  ctx.lineTo(kneeX - sPerpX, kneeY - sPerpY);
+  ctx.moveTo(kneeX + sPx * shinW / 2, kneeY + sPy * shinW / 2);
+  ctx.lineTo(footX + sPx * (shinW * 0.3), footY + sPy * (shinW * 0.3));
+  ctx.lineTo(footX - sPx * (shinW * 0.3), footY - sPy * (shinW * 0.3));
+  ctx.lineTo(kneeX - sPx * shinW / 2, kneeY - sPy * shinW / 2);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Fold
-  ctx.strokeStyle = foldCol;
-  ctx.lineWidth = 1;
-  const midX = (hipX + kneeX) / 2;
-  const midY = (hipY + kneeY) / 2;
+  // Knee joint
+  ctx.fillStyle = giCol;
   ctx.beginPath();
-  ctx.moveTo(midX + perpX * 0.4, midY + perpY * 0.4);
-  ctx.lineTo(midX - perpX * 0.4, midY - perpY * 0.4);
-  ctx.stroke();
+  ctx.arc(kneeX, kneeY, limbW * 0.32, 0, Math.PI * 2);
+  ctx.fill();
 
   // Foot pointed
   ctx.fillStyle = skinCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
-  const footAngle = shinAngle;
   ctx.save();
   ctx.translate(footX, footY);
-  ctx.rotate(footAngle);
+  ctx.rotate(shinAngle);
   ctx.beginPath();
-  ctx.moveTo(-4, -5);
+  ctx.moveTo(-5, -5);
   ctx.lineTo(16, -3);
-  ctx.lineTo(18, 0);
+  ctx.lineTo(20, 0);
   ctx.lineTo(16, 3);
-  ctx.lineTo(-4, 5);
+  ctx.lineTo(-5, 5);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   // Ball of foot
   ctx.fillStyle = skinDarkCol;
   ctx.beginPath();
-  ctx.ellipse(16, 0, 4, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(17, 0, 4.5, 4, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
