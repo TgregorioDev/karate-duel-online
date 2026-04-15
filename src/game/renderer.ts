@@ -155,18 +155,18 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const frontKneeY = hipY - Math.sin(frontHipAngle) * thighLen;
     const frontFootX = frontKneeX + 6;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 13);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 13);
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
 
     const shoulderY = hipY - torsoLen;
     const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 14;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 6, shoulderY + 18, backShoulderX - 2, hipY + 2, giMain, skin, skinShade, false, gloveCol);
+    const backShoulderX = shoulderX - 20;
+    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 20, backShoulderX - 4, hipY + 2, giMain, skin, skinShade, false, gloveCol);
 
-    const frontShoulderX = shoulderX + 14;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 12, shoulderY + 16, frontShoulderX + 8, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
+    const frontShoulderX = shoulderX + 20;
+    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 14, shoulderY + 18, frontShoulderX + 10, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
@@ -471,7 +471,7 @@ function drawAnimeArm(
   isFist: boolean,
   gloveColor?: string
 ) {
-  const armW = 9;
+  const armW = 14;
 
   // Upper arm
   const uAngle = Math.atan2(elbowY - shoulderY, elbowX - shoulderX);
@@ -491,7 +491,7 @@ function drawAnimeArm(
   ctx.stroke();
 
   // Forearm
-  const fArmW = 7;
+  const fArmW = 11;
   const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
   const fPx = Math.sin(fAngle) * fArmW / 2;
   const fPy = -Math.cos(fAngle) * fArmW / 2;
@@ -508,7 +508,7 @@ function drawAnimeArm(
 
   // Glove with anime shine
   if (gloveColor) {
-    const gloveR = isFist ? 8 : 7;
+    const gloveR = isFist ? 10 : 9;
     ctx.fillStyle = gloveColor;
     ctx.strokeStyle = OUTLINE_COL;
     ctx.lineWidth = OUTLINE_W;
@@ -546,8 +546,8 @@ function drawAnimeTorso(
   shoulderX: number, shoulderY: number,
   giMain: string, giShade: string, giFold: string, beltCol: string
 ) {
-  const shoulderW = 34;
-  const waistW = 24;
+  const shoulderW = 46;
+  const waistW = 32;
 
   // Shadow layer
   ctx.fillStyle = giShade;
