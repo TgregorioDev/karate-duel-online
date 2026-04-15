@@ -112,16 +112,18 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   ctx.translate(x, y);
   if (facing === 'left') ctx.scale(-1, 1);
 
-  const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 6 : 0;
-  const bobY = fState === 'idle' ? Math.sin(Date.now() / 300) * 1.5 : 0;
+  const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 5 : 0;
+  const t = Date.now();
+  const breathe = Math.sin(t / 400) * 1.2; // subtle breathing
+  const bobY = fState === 'idle' ? breathe : 0;
 
-  // Anime cel-shade colors
-  const skin = '#f5d0a9';
-  const skinShade = '#d4a574';
-  const skinHighlight = '#fce4c8';
-  const giMain = fState === 'hit' ? '#ffbbbb' : '#f8f6f0';
-  const giShade = fState === 'hit' ? '#e09090' : '#ddd8cc';
-  const giFold = fState === 'hit' ? '#cc7777' : '#c4bfb4';
+  // Color palette
+  const skin = '#e8b888';
+  const skinShade = '#c4956a';
+  const skinHighlight = '#f5d4b0';
+  const giMain = fState === 'hit' ? '#f0b8b8' : '#f0ece4';
+  const giShade = fState === 'hit' ? '#d49090' : '#d0ccc0';
+  const giFold = fState === 'hit' ? '#b87070' : '#b8b4a8';
   const beltCol = '#1a1a1a';
   const gloveCol = accentColor;
 
@@ -130,169 +132,167 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawSpeedLines(ctx, fState);
   }
 
-  // Ground shadow (anime style — sharp ellipse)
-  ctx.fillStyle = 'rgba(10,5,20,0.35)';
+  // Ground shadow
+  ctx.fillStyle = 'rgba(10,5,20,0.3)';
   ctx.beginPath();
-  ctx.ellipse(0, 4, 44, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 4, 38, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const thighLen = 40;
-  const shinLen = 38;
-  const torsoLen = 48;
-  const upperArmLen = 26;
-  const forearmLen = 24;
-  const headR = 13;
+  // Proportions — 7.5 head ratio (realistic athletic build)
+  const headR = 12;
+  const torsoLen = 42;
+  const legW = 16; // thigh width
+  const armW = 12;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
-    const walkPhase = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(Date.now() / 120) * 0.15 : 0;
-    const hipY = -40 + bobY;
-    const backHipAngle = -Math.PI / 2 - 0.35 + walkPhase;
-    const backKneeX = Math.cos(backHipAngle) * thighLen;
-    const backKneeY = hipY - Math.sin(backHipAngle) * thighLen;
-    const backFootX = backKneeX - 8;
-    const frontHipAngle = -Math.PI / 2 + 0.3 - walkPhase;
-    const frontKneeX = Math.cos(frontHipAngle) * thighLen;
-    const frontKneeY = hipY - Math.sin(frontHipAngle) * thighLen;
-    const frontFootX = frontKneeX + 6;
+    const walkCycle = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(t / 130) * 0.18 : 0;
+    const hipY = -38 + bobY;
+    const torsoLean = walkCycle * 0.05; // subtle torso sway
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
+    // Wider natural stance — back leg bent, front leg forward
+    const backKneeX = -14 - walkCycle * 10;
+    const backKneeY = hipY + 22;
+    const backFootX = -22 - walkCycle * 6;
+    const frontKneeX = 16 + walkCycle * 10;
+    const frontKneeY = hipY + 20;
+    const frontFootX = 22 + walkCycle * 6;
+
+    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 2, giMain, giFold, skin, skinShade, legW);
 
     const shoulderY = hipY - torsoLen;
-    const shoulderX = 2;
+    const shoulderX = 2 + torsoLean * 8;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 20;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 20, backShoulderX - 4, hipY + 2, giMain, skin, skinShade, false, gloveCol);
-
-    const frontShoulderX = shoulderX + 20;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 14, shoulderY + 18, frontShoulderX + 10, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
+    // Arms in guard — natural kamae
+    const backSX = shoulderX - 20;
+    const frontSX = shoulderX + 20;
+    // Back arm: relaxed at side, fist near hip
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 6, shoulderY + 22, backSX - 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
+    // Front arm: guard up, forearm angled forward
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 10, shoulderY + 18, frontSX + 16, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'punch') {
-    const hipY = -36;
-    const backFootX = -32; const backKneeX = -18; const backKneeY = hipY + 18;
-    const frontFootX = 28; const frontKneeX = 22; const frontKneeY = hipY + 14;
+    // Zenkutsu-dachi — deep front stance, hips rotated
+    const hipY = -34;
+    drawAnimeLeg(ctx, 0, hipY, -16, hipY + 22, -30, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, 18, hipY + 16, 28, 2, giMain, giFold, skin, skinShade, legW);
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
-
-    const shoulderY = hipY - torsoLen; const shoulderX = 4;
+    const shoulderY = hipY - torsoLen; const shoulderX = 6; // rotated forward
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 20;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinShade, false, gloveCol);
-
-    const frontShoulderX = shoulderX + 20;
-    const punchReach = 58;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + punchReach * 0.5, shoulderY + 6, frontShoulderX + punchReach, shoulderY + 8, giMain, skin, skinShade, true, gloveCol);
+    // Hikite — pulling hand back to hip
+    const backSX = shoulderX - 20;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 2, shoulderY + 20, backSX + 2, hipY - 6, giMain, skin, skinShade, true, gloveCol);
+    // Punching arm — full extension
+    const frontSX = shoulderX + 20;
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 28, shoulderY + 4, frontSX + 56, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'kick') {
-    const hipY = -42;
-    const standFootX = -10; const standKneeX = -6; const standKneeY = hipY + 20;
-    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 17);
+    // Mawashi-geri — standing leg bent, kicking leg high
+    const hipY = -40;
+    drawAnimeLeg(ctx, 0, hipY, -8, hipY + 22, -12, 2, giMain, giFold, skin, skinShade, legW);
 
-    const kickKneeX = 18; const kickKneeY = hipY - 20;
-    const kickFootX = 62; const kickFootY = hipY - torsoLen + 10;
+    const kickKneeX = 16; const kickKneeY = hipY - 18;
+    const kickFootX = 58; const kickFootY = hipY - torsoLen + 12;
     drawAnimeLegKick(ctx, 0, hipY, kickKneeX, kickKneeY, kickFootX, kickFootY, giMain, giFold, skin, skinShade);
 
-    const shoulderY = hipY - torsoLen; const shoulderX = -4;
+    const shoulderY = hipY - torsoLen; const shoulderX = -4; // lean back
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 20;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 8, shoulderY + 16, backShoulderX - 4, hipY, giMain, skin, skinShade, false, gloveCol);
-    const frontShoulderX = shoulderX + 20;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 6, shoulderY + 14, frontShoulderX + 2, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
+    const backSX = shoulderX - 20;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 10, shoulderY + 16, backSX - 6, hipY - 2, giMain, skin, skinShade, false, gloveCol);
+    const frontSX = shoulderX + 20;
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 8, shoulderY + 16, frontSX + 4, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'gyaku-zuki') {
-    const hipY = -36;
-    const backFootX = -34; const backKneeX = -20; const backKneeY = hipY + 18;
-    const frontFootX = 26; const frontKneeX = 22; const frontKneeY = hipY + 12;
+    // Deep stance, rear hand punching with hip rotation
+    const hipY = -34;
+    drawAnimeLeg(ctx, 0, hipY, -18, hipY + 22, -32, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, 18, hipY + 14, 26, 2, giMain, giFold, skin, skinShade, legW);
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 18);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 18);
-
-    const shoulderY = hipY - torsoLen; const shoulderX = 6;
+    const shoulderY = hipY - torsoLen; const shoulderX = 8; // strong rotation
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const frontShoulderX = shoulderX + 20;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 4, shoulderY + 20, frontShoulderX + 2, hipY + 2, giMain, skin, skinShade, true, gloveCol);
-
-    const backShoulderX = shoulderX - 20;
-    const punchReach = 55;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX + punchReach * 0.45, shoulderY + 14, backShoulderX + punchReach, shoulderY + 20, giMain, skin, skinShade, false, gloveCol);
+    // Front hand pulls back (hikite)
+    const frontSX = shoulderX + 20;
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 4, shoulderY + 20, frontSX + 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
+    // Rear hand punches through
+    const backSX = shoulderX - 20;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX + 24, shoulderY + 12, backSX + 52, shoulderY + 18, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'mae-geri') {
-    const hipY = -40;
-    const standFootX = -8; const standKneeX = -4; const standKneeY = hipY + 18;
-    drawAnimeLeg(ctx, 0, hipY, standKneeX, standKneeY, standFootX, 0, giMain, giFold, skin, skinShade, 17);
+    // Front snap kick — weight on back leg, front knee chambered
+    const hipY = -38;
+    drawAnimeLeg(ctx, 0, hipY, -6, hipY + 22, -10, 2, giMain, giFold, skin, skinShade, legW);
 
-    const kickKneeX = 16; const kickKneeY = hipY - 8;
-    const kickFootX = 56; const kickFootY = hipY - 14;
+    const kickKneeX = 14; const kickKneeY = hipY - 6;
+    const kickFootX = 52; const kickFootY = hipY - 12;
     drawAnimeLegKick(ctx, 0, hipY, kickKneeX, kickKneeY, kickFootX, kickFootY, giMain, giFold, skin, skinShade);
 
     const shoulderY = hipY - torsoLen; const shoulderX = -2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 20;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 6, shoulderY + 14, backShoulderX - 2, shoulderY + 2, giMain, skin, skinShade, false, gloveCol);
-    const frontShoulderX = shoulderX + 20;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 8, shoulderY + 14, frontShoulderX + 4, shoulderY + 2, giMain, skin, skinShade, true, gloveCol);
+    const backSX = shoulderX - 20;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 6, shoulderY + 16, backSX - 2, shoulderY + 4, giMain, skin, skinShade, false, gloveCol);
+    const frontSX = shoulderX + 20;
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 8, shoulderY + 16, frontSX + 4, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'block') {
-    const hipY = -40 + bobY;
-    const backFootX = -28; const backKneeX = -16; const backKneeY = hipY + 20;
-    const frontFootX = 24; const frontKneeX = 20; const frontKneeY = hipY + 14;
-
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 17);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 17);
+    // Uchi-uke — weight centered, blocking arm swept outward
+    const hipY = -38 + bobY;
+    drawAnimeLeg(ctx, 0, hipY, -14, hipY + 22, -26, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, 16, hipY + 18, 22, 2, giMain, giFold, skin, skinShade, legW);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backShoulderX = shoulderX - 20;
-    drawAnimeArm(ctx, backShoulderX, shoulderY + 4, backShoulderX - 4, shoulderY + 20, backShoulderX, hipY + 2, giMain, skin, skinShade, true, gloveCol);
-
-    const frontShoulderX = shoulderX + 20;
-    drawAnimeArm(ctx, frontShoulderX, shoulderY + 4, frontShoulderX + 20, shoulderY + 14, frontShoulderX + 26, shoulderY - 6, giMain, skin, skinShade, true, gloveCol);
+    // Back arm at hip
+    const backSX = shoulderX - 20;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 2, shoulderY + 20, backSX + 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
+    // Front arm — uchi uke sweep
+    const frontSX = shoulderX + 20;
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 16, shoulderY + 12, frontSX + 24, shoulderY - 4, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'hit') {
-    const hipY = -38 + hitShake;
-    const backFootX = -14; const backKneeX = -10; const backKneeY = hipY + 18;
-    const frontFootX = 10; const frontKneeX = 8; const frontKneeY = hipY + 20;
+    // Recoil — leaning back, arms loose
+    const hipY = -36 + hitShake;
+    drawAnimeLeg(ctx, 0, hipY, -10, hipY + 20, -14, 2, giMain, giFold, skin, skinShade, legW - 1);
+    drawAnimeLeg(ctx, 0, hipY, 8, hipY + 22, 10, 2, giMain, giFold, skin, skinShade, legW - 1);
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 0, giMain, giFold, skin, skinShade, 16);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 0, giMain, giFold, skin, skinShade, 16);
-
-    const shoulderY = hipY - torsoLen + 6; const shoulderX = -6;
+    const shoulderY = hipY - torsoLen + 6; const shoulderX = -8; // recoiling back
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 4, shoulderX - 28, shoulderY + 14, shoulderX - 24, shoulderY + 24, giMain, skin, skinShade, false, gloveCol);
-    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 4, shoulderX + 26, shoulderY + 12, shoulderX + 22, shoulderY + 22, giMain, skin, skinShade, false, gloveCol);
+    // Arms flailing from impact
+    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 6, shoulderX - 28, shoulderY + 16, shoulderX - 22, shoulderY + 28, giMain, skin, skinShade, false, gloveCol);
+    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 6, shoulderX + 26, shoulderY + 14, shoulderX + 20, shoulderY + 26, giMain, skin, skinShade, false, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'victory') {
-    const hipY = -42;
-    drawAnimeLeg(ctx, 0, hipY, -6, hipY + 20, -10, 0, giMain, giFold, skin, skinShade, 17);
-    drawAnimeLeg(ctx, 0, hipY, 6, hipY + 20, 10, 0, giMain, giFold, skin, skinShade, 17);
+    // Standing tall, fists raised
+    const hipY = -40;
+    drawAnimeLeg(ctx, 0, hipY, -8, hipY + 22, -12, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, 8, hipY + 22, 12, 2, giMain, giFold, skin, skinShade, legW);
 
     const shoulderY = hipY - torsoLen; const shoulderX = 0;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 4, shoulderX - 26, shoulderY - 20, shoulderX - 22, shoulderY - 36, giMain, skin, skinShade, true, gloveCol);
-    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 4, shoulderX + 28, shoulderY - 22, shoulderX + 24, shoulderY - 38, giMain, skin, skinShade, true, gloveCol);
+    // Arms raised in victory
+    drawAnimeArm(ctx, shoulderX - 20, shoulderY + 6, shoulderX - 24, shoulderY - 18, shoulderX - 20, shoulderY - 34, giMain, skin, skinShade, true, gloveCol);
+    drawAnimeArm(ctx, shoulderX + 20, shoulderY + 6, shoulderX + 26, shoulderY - 20, shoulderX + 22, shoulderY - 36, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
   }
