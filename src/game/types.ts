@@ -15,6 +15,10 @@ export interface Fighter {
   color: string;
   accentColor: string;
   beltColor: string;
+  // Explosive lunge during attacks (tobikomi)
+  lungeVelocity: number;
+  lungeFramesLeft: number;
+  lungeDistanceLeft: number;
 }
 
 export type FighterState = 
