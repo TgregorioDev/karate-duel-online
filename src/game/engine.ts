@@ -94,6 +94,18 @@ const COMBO_WINDOW = 25; // frames after an attack ends where combo is possible
 const COMBO_SPEED_BONUS = 0.7; // duration multiplier
 const COMBO_STAMINA_BONUS = 0.8; // stamina cost multiplier
 
+// Cancel window: during the LAST N frames of an attack animation (after the hit-frame),
+// a new attack input can cancel the recovery, enabling fluid sequences like kizami → gyaku-zuki.
+const CANCEL_WINDOW = 6;
+
+function canStartAttack(fighter: Fighter): boolean {
+  // Free to act when not currently attacking, or when in the cancel window of an ongoing attack
+  if (fighter.state === 'hit') return false;
+  if (!isAttackState(fighter.state)) return fighter.stateTimer <= 0;
+  // In an attack: only allow cancel after the hit frame has passed (recovery phase)
+  return fighter.stateTimer > 0 && fighter.stateTimer <= CANCEL_WINDOW;
+}
+
 function isAttackState(state: string): boolean {
   return state === 'punch' || state === 'kick' || state === 'gyaku-zuki' || state === 'mae-geri';
 }
@@ -161,10 +173,12 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     if (fighter.stateTimer <= 0 && fighter.state !== 'block') {
       fighter.state = 'idle';
     }
-    if (fighter.state === 'hit' || isAttackState(fighter.state)) return;
+    if (fighter.state === 'hit') return;
+    // If mid-attack but NOT in the cancel window, lock out other actions
+    if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) return;
   }
 
-  // Block
+  // Block (only when not mid-attack)
   if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
     if (fighter.state !== 'block') {
       fighter.blockTimer = 0;
@@ -180,13 +194,14 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   if (fighter.state === 'block') return;
 
-  // Check if in combo window (hitCooldown is set after attacks land, but we use stateTimer transition)
-  const inCombo = fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW;
+  // Combo bonus: applies if chaining within the post-attack combo window OR cancelling out of an attack's recovery
+  const inCombo = (fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW) || isAttackState(fighter.state);
 
   const target = fighter === state.player ? state.opponent : state.player;
+  const ready = canStartAttack(fighter);
 
-  // Attacks - check all four, combo-aware
-  if (input.punch && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  // Attacks - check all four. Allow during cancel window for fluid sequences (kizami → gyaku-zuki, etc.)
+  if (input.punch && ready) {
     const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'punch';
@@ -197,7 +212,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.gyakuZuki && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.gyakuZuki && ready) {
     const cost = inCombo ? GYAKU_ZUKI_COST * COMBO_STAMINA_BONUS : GYAKU_ZUKI_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'gyaku-zuki';
@@ -208,7 +223,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.kick && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.kick && ready) {
     const cost = inCombo ? KICK_COST * COMBO_STAMINA_BONUS : KICK_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'kick';
@@ -219,7 +234,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.maeGeri && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.maeGeri && ready) {
     const cost = inCombo ? MAE_GERI_COST * COMBO_STAMINA_BONUS : MAE_GERI_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'mae-geri';
@@ -230,6 +245,9 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
+
+  // If we got here while still mid-attack (cancel window with no input), keep playing the attack
+  if (isAttackState(fighter.state)) return;
 
   // Movement
   const speed = 3.5;
@@ -345,18 +363,30 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 // ===== AI =====
 let aiActionTimer = 0;
 let aiAction: 'idle' | 'advance' | 'retreat' | 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | 'block' = 'idle';
+// Pre-planned follow-up attack to chain into the cancel window (AI combos)
+let aiComboNext: 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | null = null;
 
 export function updateAI(state: GameState) {
   const opp = state.opponent;
   const player = state.player;
-  
+
   opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN);
   if (opp.hitCooldown > 0) opp.hitCooldown--;
 
   if (opp.stateTimer > 0) {
     opp.stateTimer--;
     if (opp.stateTimer <= 0 && opp.state !== 'block') opp.state = 'idle';
-    if (opp.state === 'hit' || isAttackState(opp.state)) return;
+    if (opp.state === 'hit') return;
+    // Mid-attack: only allow chaining a queued combo during the cancel window
+    if (isAttackState(opp.state)) {
+      if (opp.stateTimer <= CANCEL_WINDOW && aiComboNext) {
+        const queued = aiComboNext;
+        aiComboNext = null;
+        executeAIAttack(opp, player, queued, state.aiDifficulty);
+        return;
+      }
+      return;
+    }
   }
 
   const dist = Math.abs(opp.x - player.x);
@@ -365,7 +395,7 @@ export function updateAI(state: GameState) {
   aiActionTimer--;
   if (aiActionTimer <= 0) {
     const rand = Math.random();
-    
+
     if (isAttackState(player.state)) {
       // React to player attack
       if (rand < diff * 0.7) {
@@ -379,7 +409,7 @@ export function updateAI(state: GameState) {
         aiActionTimer = 10;
       }
     } else if (dist < GYAKU_ZUKI_RANGE + 10 && opp.stamina >= GYAKU_ZUKI_COST) {
-      // Close range - use variety of attacks
+      // Close range - use variety of attacks, sometimes pre-planning a combo
       if (rand < diff * 0.5) {
         const attackRoll = Math.random();
         if (attackRoll < 0.3) aiAction = 'punch';
@@ -387,6 +417,16 @@ export function updateAI(state: GameState) {
         else if (attackRoll < 0.8) aiAction = 'kick';
         else aiAction = 'mae-geri';
         aiActionTimer = 8;
+
+        // Plan a follow-up combo (kizami → gyaku-zuki being a classic), chance scales with difficulty
+        if (Math.random() < 0.35 + diff * 0.4) {
+          if (aiAction === 'punch') aiComboNext = Math.random() < 0.7 ? 'gyaku-zuki' : 'mae-geri';
+          else if (aiAction === 'gyaku-zuki') aiComboNext = Math.random() < 0.5 ? 'punch' : 'kick';
+          else if (aiAction === 'kick') aiComboNext = 'gyaku-zuki';
+          else if (aiAction === 'mae-geri') aiComboNext = 'punch';
+        } else {
+          aiComboNext = null;
+        }
       } else {
         aiAction = Math.random() < 0.5 ? 'retreat' : 'block';
         aiActionTimer = 20;
@@ -419,42 +459,10 @@ export function updateAI(state: GameState) {
       opp.state = 'walk-backward';
       break;
     case 'punch':
-      if (opp.stateTimer <= 0 && opp.stamina >= PUNCH_COST && opp.hitCooldown <= 0) {
-        opp.state = 'punch';
-        opp.stateTimer = ATTACK_DURATION.punch;
-        opp.stamina -= PUNCH_COST;
-        opp.velocityX = 0;
-        startLunge(opp, player, 'punch');
-        aiAction = 'idle';
-      }
-      break;
     case 'gyaku-zuki':
-      if (opp.stateTimer <= 0 && opp.stamina >= GYAKU_ZUKI_COST && opp.hitCooldown <= 0) {
-        opp.state = 'gyaku-zuki';
-        opp.stateTimer = ATTACK_DURATION['gyaku-zuki'];
-        opp.stamina -= GYAKU_ZUKI_COST;
-        opp.velocityX = 0;
-        startLunge(opp, player, 'gyaku-zuki');
-        aiAction = 'idle';
-      }
-      break;
     case 'kick':
-      if (opp.stateTimer <= 0 && opp.stamina >= KICK_COST && opp.hitCooldown <= 0) {
-        opp.state = 'kick';
-        opp.stateTimer = ATTACK_DURATION.kick;
-        opp.stamina -= KICK_COST;
-        opp.velocityX = 0;
-        startLunge(opp, player, 'kick');
-        aiAction = 'idle';
-      }
-      break;
     case 'mae-geri':
-      if (opp.stateTimer <= 0 && opp.stamina >= MAE_GERI_COST && opp.hitCooldown <= 0) {
-        opp.state = 'mae-geri';
-        opp.stateTimer = ATTACK_DURATION['mae-geri'];
-        opp.stamina -= MAE_GERI_COST;
-        opp.velocityX = 0;
-        startLunge(opp, player, 'mae-geri');
+      if (executeAIAttack(opp, player, aiAction, diff)) {
         aiAction = 'idle';
       }
       break;
@@ -470,4 +478,27 @@ export function updateAI(state: GameState) {
       opp.velocityX = 0;
       if (opp.state === 'walk-forward' || opp.state === 'walk-backward') opp.state = 'idle';
   }
+}
+
+const ATTACK_COSTS: Record<string, number> = {
+  punch: PUNCH_COST,
+  'gyaku-zuki': GYAKU_ZUKI_COST,
+  kick: KICK_COST,
+  'mae-geri': MAE_GERI_COST,
+};
+
+function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri', _diff: number): boolean {
+  const baseCost = ATTACK_COSTS[attack];
+  // If chaining out of an attack's cancel window, apply combo discount/speedup
+  const chaining = isAttackState(opp.state) && opp.stateTimer <= CANCEL_WINDOW;
+  const cost = chaining ? baseCost * COMBO_STAMINA_BONUS : baseCost;
+  if (opp.stamina < cost) return false;
+
+  const baseDuration = ATTACK_DURATION[attack];
+  opp.state = attack;
+  opp.stateTimer = chaining ? Math.floor(baseDuration * COMBO_SPEED_BONUS) : baseDuration;
+  opp.stamina -= cost;
+  opp.velocityX = 0;
+  startLunge(opp, player, attack);
+  return true;
 }
