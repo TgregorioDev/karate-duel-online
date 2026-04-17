@@ -212,20 +212,38 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'gyaku-zuki') {
-    // Deep stance, rear hand punching with hip rotation
-    const hipY = -34;
-    drawAnimeLeg(ctx, 0, hipY, -18, hipY + 22, -32, 2, giMain, giFold, skin, skinShade, legW);
-    drawAnimeLeg(ctx, 0, hipY, 18, hipY + 14, 26, 2, giMain, giFold, skin, skinShade, legW);
+    // Gyaku-zuki com rotação de quadril (kaiten):
+    // perna de trás empurra firme contra o solo (calcanhar plantado),
+    // os quadris giram para encarar frontalmente o oponente,
+    // o ombro de trás dispara para frente junto com o quadril,
+    // e o punho viaja em LINHA RETA partindo do peito até o alvo.
 
-    const shoulderY = hipY - torsoLen; const shoulderX = 8; // strong rotation
-    drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+    // Stance Zenkutsu-dachi: peso ~70% perna da frente, perna de trás reta empurrando
+    const hipY = -36;
 
-    // Front hand pulls back (hikite)
-    const frontSX = shoulderX + 20;
-    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 4, shoulderY + 20, frontSX + 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
-    // Rear hand punches through
-    const backSX = shoulderX - 20;
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX + 24, shoulderY + 12, backSX + 52, shoulderY + 18, giMain, skin, skinShade, true, gloveCol);
+    // Perna de trás (esquerda no canvas) — esticada, empurrando o solo
+    drawAnimeLeg(ctx, -6, hipY, -22, hipY + 26, -34, 4, giMain, giFold, skin, skinShade, legW);
+    // Perna da frente (direita) — joelho flexionado sobre o pé, suportando peso
+    drawAnimeLeg(ctx, 6, hipY, 22, hipY + 12, 30, 2, giMain, giFold, skin, skinShade, legW);
+
+    // Quadril rotacionado para frente: ombros vêm bem à frente do eixo dos pés.
+    // shoulderX positivo = ombros avançaram na direção do oponente acompanhando o quadril.
+    const shoulderY = hipY - torsoLen;
+    const shoulderX = 14; // forte avanço do tronco/quadril (kaiten)
+
+    drawAnimeTorso(ctx, 4, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // Hikite — mão da frente puxada com força até a costela (cotovelo travado para trás)
+    const hikiteSX = shoulderX + 18;
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteSX + 6, shoulderY + 18, hikiteSX - 4, hipY - 6, giMain, skin, skinShade, true, gloveCol);
+
+    // Soco reverso — ombro de trás VEM PARA FRENTE com o quadril.
+    // Trajetória RETA: ombro, cotovelo e punho alinhados horizontalmente na altura do peito.
+    const punchShoulderX = shoulderX - 6; // ombro de trás avançou (não está mais atrás)
+    const punchY = shoulderY + 14; // altura do peito (chudan)
+    const elbowX = punchShoulderX + 22;
+    const fistX = punchShoulderX + 58;
+    drawAnimeArm(ctx, punchShoulderX, shoulderY + 6, elbowX, punchY, fistX, punchY, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
