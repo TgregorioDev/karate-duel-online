@@ -12,7 +12,20 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
     facing, state: 'idle', stateTimer: 0,
     stamina: STAMINA_MAX, hitCooldown: 0, blockTimer: 0,
     color, accentColor: accent, beltColor: belt,
+    lungeVelocity: 0, lungeFramesLeft: 0, lungeDistanceLeft: 0,
   };
+}
+
+function startLunge(fighter: Fighter, target: Fighter, attack: string) {
+  const speed = LUNGE_SPEED[attack] ?? 0;
+  const frames = LUNGE_FRAMES[attack] ?? 0;
+  if (!speed || !frames) return;
+  const dir = target.x < fighter.x ? -1 : 1;
+  fighter.lungeVelocity = dir * speed;
+  fighter.lungeFramesLeft = frames;
+  // Don't overshoot the opponent — clamp by current distance minus a small buffer
+  const gap = Math.max(0, Math.abs(target.x - fighter.x) - 50);
+  fighter.lungeDistanceLeft = Math.min(LUNGE_MAX_DISTANCE, gap);
 }
 
 export function createInitialState(): GameState {
