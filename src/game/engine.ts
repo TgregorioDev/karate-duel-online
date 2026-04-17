@@ -24,7 +24,7 @@ function startLunge(fighter: Fighter, target: Fighter, attack: string) {
   fighter.lungeVelocity = dir * speed;
   fighter.lungeFramesLeft = frames;
   // Don't overshoot the opponent — clamp by current distance minus a small buffer
-  const gap = Math.max(0, Math.abs(target.x - fighter.x) - 50);
+  const gap = Math.max(0, Math.abs(target.x - fighter.x) - 65);
   fighter.lungeDistanceLeft = Math.min(LUNGE_MAX_DISTANCE, gap);
 }
 
