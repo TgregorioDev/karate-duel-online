@@ -94,6 +94,18 @@ const COMBO_WINDOW = 25; // frames after an attack ends where combo is possible
 const COMBO_SPEED_BONUS = 0.7; // duration multiplier
 const COMBO_STAMINA_BONUS = 0.8; // stamina cost multiplier
 
+// Cancel window: during the LAST N frames of an attack animation (after the hit-frame),
+// a new attack input can cancel the recovery, enabling fluid sequences like kizami → gyaku-zuki.
+const CANCEL_WINDOW = 6;
+
+function canStartAttack(fighter: Fighter): boolean {
+  // Free to act when not currently attacking, or when in the cancel window of an ongoing attack
+  if (fighter.state === 'hit') return false;
+  if (!isAttackState(fighter.state)) return fighter.stateTimer <= 0;
+  // In an attack: only allow cancel after the hit frame has passed (recovery phase)
+  return fighter.stateTimer > 0 && fighter.stateTimer <= CANCEL_WINDOW;
+}
+
 function isAttackState(state: string): boolean {
   return state === 'punch' || state === 'kick' || state === 'gyaku-zuki' || state === 'mae-geri';
 }
