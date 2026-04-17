@@ -173,10 +173,12 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     if (fighter.stateTimer <= 0 && fighter.state !== 'block') {
       fighter.state = 'idle';
     }
-    if (fighter.state === 'hit' || isAttackState(fighter.state)) return;
+    if (fighter.state === 'hit') return;
+    // If mid-attack but NOT in the cancel window, lock out other actions
+    if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) return;
   }
 
-  // Block
+  // Block (only when not mid-attack)
   if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
     if (fighter.state !== 'block') {
       fighter.blockTimer = 0;
@@ -192,13 +194,14 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   if (fighter.state === 'block') return;
 
-  // Check if in combo window (hitCooldown is set after attacks land, but we use stateTimer transition)
-  const inCombo = fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW;
+  // Combo bonus: applies if chaining within the post-attack combo window OR cancelling out of an attack's recovery
+  const inCombo = (fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW) || isAttackState(fighter.state);
 
   const target = fighter === state.player ? state.opponent : state.player;
+  const ready = canStartAttack(fighter);
 
-  // Attacks - check all four, combo-aware
-  if (input.punch && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  // Attacks - check all four. Allow during cancel window for fluid sequences (kizami → gyaku-zuki, etc.)
+  if (input.punch && ready) {
     const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'punch';
@@ -209,7 +212,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.gyakuZuki && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.gyakuZuki && ready) {
     const cost = inCombo ? GYAKU_ZUKI_COST * COMBO_STAMINA_BONUS : GYAKU_ZUKI_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'gyaku-zuki';
@@ -220,7 +223,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.kick && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.kick && ready) {
     const cost = inCombo ? KICK_COST * COMBO_STAMINA_BONUS : KICK_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'kick';
@@ -231,7 +234,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
-  if (input.maeGeri && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
+  if (input.maeGeri && ready) {
     const cost = inCombo ? MAE_GERI_COST * COMBO_STAMINA_BONUS : MAE_GERI_COST;
     if (fighter.stamina >= cost) {
       fighter.state = 'mae-geri';
@@ -242,6 +245,9 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       return;
     }
   }
+
+  // If we got here while still mid-attack (cancel window with no input), keep playing the attack
+  if (isAttackState(fighter.state)) return;
 
   // Movement
   const speed = 3.5;
