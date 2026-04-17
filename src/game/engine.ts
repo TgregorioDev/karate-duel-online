@@ -52,6 +52,24 @@ const ATTACK_DURATION: Record<string, number> = {
 };
 const HIT_STUN = 20;
 
+// Explosive lunge (tobikomi) — burst forward at the start of each attack.
+// Tuned per technique: jabs are quick darts, gyaku-zuki commits deeper, kicks lunge the most.
+const LUNGE_SPEED: Record<string, number> = {
+  punch: 9,
+  'gyaku-zuki': 11,
+  kick: 8,
+  'mae-geri': 10,
+};
+// How many startup frames the lunge impulse lasts (then decays sharply)
+const LUNGE_FRAMES: Record<string, number> = {
+  punch: 4,
+  'gyaku-zuki': 5,
+  kick: 5,
+  'mae-geri': 6,
+};
+// Maximum lunge distance (px) — keeps it precise, not a teleport
+const LUNGE_MAX_DISTANCE = 90;
+
 // Combo: if you chain attacks quickly, reduced stamina cost & faster startup
 const COMBO_WINDOW = 25; // frames after an attack ends where combo is possible
 const COMBO_SPEED_BONUS = 0.7; // duration multiplier
