@@ -502,4 +502,3 @@ function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku
   startLunge(opp, player, attack);
   return true;
 }
-}
