@@ -246,7 +246,19 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 }
 
 function updateFighterPhysics(fighter: Fighter) {
-  fighter.x += fighter.velocityX;
+  // Apply explosive lunge during attack startup, with distance cap
+  if (fighter.lungeFramesLeft > 0 && fighter.lungeDistanceLeft > 0) {
+    const step = Math.min(Math.abs(fighter.lungeVelocity), fighter.lungeDistanceLeft);
+    fighter.x += Math.sign(fighter.lungeVelocity) * step;
+    fighter.lungeDistanceLeft -= step;
+    fighter.lungeFramesLeft--;
+    if (fighter.lungeFramesLeft <= 0) {
+      fighter.lungeVelocity = 0;
+      fighter.lungeDistanceLeft = 0;
+    }
+  } else {
+    fighter.x += fighter.velocityX;
+  }
   fighter.x = Math.max(80, Math.min(CANVAS_WIDTH - 80, fighter.x));
 }
 
