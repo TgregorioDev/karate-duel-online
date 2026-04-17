@@ -110,7 +110,9 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
   ctx.save();
   ctx.translate(x, y);
-  if (facing === 'left') ctx.scale(-1, 1);
+  // Global fighter scale — bigger athletes, closer presence on screen
+  const FIGHTER_SCALE = 1.25;
+  ctx.scale(facing === 'left' ? -FIGHTER_SCALE : FIGHTER_SCALE, FIGHTER_SCALE);
 
   const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 5 : 0;
   const t = Date.now();
