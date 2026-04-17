@@ -1091,20 +1091,20 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Player label
-  ctx.fillStyle = '#66aaff';
+  // Player label — AKA (red)
+  ctx.fillStyle = '#ff6666';
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('AKA', 20, 18);
-  
+
   // Score circles
   for (let i = 0; i < MAX_SCORE; i++) {
     ctx.beginPath();
     ctx.arc(20 + i * 26, 36, 7, 0, Math.PI * 2);
     if (i < state.player.score) {
-      ctx.fillStyle = '#4488ff';
+      ctx.fillStyle = '#ff4444';
       ctx.fill();
-      ctx.strokeStyle = '#88bbff';
+      ctx.strokeStyle = '#ff8888';
     } else {
       ctx.fillStyle = '#222';
       ctx.fill();
@@ -1114,19 +1114,19 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.stroke();
   }
 
-  // Opponent label
-  ctx.fillStyle = '#ff6666';
+  // Opponent label — AO (blue)
+  ctx.fillStyle = '#66aaff';
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'right';
   ctx.fillText('AO', CANVAS_WIDTH - 20, 18);
-  
+
   for (let i = 0; i < MAX_SCORE; i++) {
     ctx.beginPath();
     ctx.arc(CANVAS_WIDTH - 20 - i * 26, 36, 7, 0, Math.PI * 2);
     if (i < state.opponent.score) {
-      ctx.fillStyle = '#ff4444';
+      ctx.fillStyle = '#4488ff';
       ctx.fill();
-      ctx.strokeStyle = '#ff8888';
+      ctx.strokeStyle = '#88bbff';
     } else {
       ctx.fillStyle = '#222';
       ctx.fill();
