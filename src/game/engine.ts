@@ -12,7 +12,20 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
     facing, state: 'idle', stateTimer: 0,
     stamina: STAMINA_MAX, hitCooldown: 0, blockTimer: 0,
     color, accentColor: accent, beltColor: belt,
+    lungeVelocity: 0, lungeFramesLeft: 0, lungeDistanceLeft: 0,
   };
+}
+
+function startLunge(fighter: Fighter, target: Fighter, attack: string) {
+  const speed = LUNGE_SPEED[attack] ?? 0;
+  const frames = LUNGE_FRAMES[attack] ?? 0;
+  if (!speed || !frames) return;
+  const dir = target.x < fighter.x ? -1 : 1;
+  fighter.lungeVelocity = dir * speed;
+  fighter.lungeFramesLeft = frames;
+  // Don't overshoot the opponent — clamp by current distance minus a small buffer
+  const gap = Math.max(0, Math.abs(target.x - fighter.x) - 50);
+  fighter.lungeDistanceLeft = Math.min(LUNGE_MAX_DISTANCE, gap);
 }
 
 export function createInitialState(): GameState {
@@ -41,6 +54,12 @@ export function resetPositions(state: GameState) {
   state.opponent.stamina = STAMINA_MAX;
   state.player.blockTimer = 0;
   state.opponent.blockTimer = 0;
+  state.player.lungeVelocity = 0;
+  state.player.lungeFramesLeft = 0;
+  state.player.lungeDistanceLeft = 0;
+  state.opponent.lungeVelocity = 0;
+  state.opponent.lungeFramesLeft = 0;
+  state.opponent.lungeDistanceLeft = 0;
   state.hitEffect = null;
 }
 
@@ -51,6 +70,24 @@ const ATTACK_DURATION: Record<string, number> = {
   'mae-geri': 16,
 };
 const HIT_STUN = 20;
+
+// Explosive lunge (tobikomi) — burst forward at the start of each attack.
+// Tuned per technique: jabs are quick darts, gyaku-zuki commits deeper, kicks lunge the most.
+const LUNGE_SPEED: Record<string, number> = {
+  punch: 9,
+  'gyaku-zuki': 11,
+  kick: 8,
+  'mae-geri': 10,
+};
+// How many startup frames the lunge impulse lasts (then decays sharply)
+const LUNGE_FRAMES: Record<string, number> = {
+  punch: 4,
+  'gyaku-zuki': 5,
+  kick: 5,
+  'mae-geri': 6,
+};
+// Maximum lunge distance (px) — keeps it precise, not a teleport
+const LUNGE_MAX_DISTANCE = 90;
 
 // Combo: if you chain attacks quickly, reduced stamina cost & faster startup
 const COMBO_WINDOW = 25; // frames after an attack ends where combo is possible
@@ -146,6 +183,8 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
   // Check if in combo window (hitCooldown is set after attacks land, but we use stateTimer transition)
   const inCombo = fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW;
 
+  const target = fighter === state.player ? state.opponent : state.player;
+
   // Attacks - check all four, combo-aware
   if (input.punch && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
     const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
@@ -154,6 +193,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.punch * COMBO_SPEED_BONUS) : ATTACK_DURATION.punch;
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'punch');
       return;
     }
   }
@@ -164,6 +204,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['gyaku-zuki'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['gyaku-zuki'];
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'gyaku-zuki');
       return;
     }
   }
@@ -174,6 +215,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.kick * COMBO_SPEED_BONUS) : ATTACK_DURATION.kick;
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'kick');
       return;
     }
   }
@@ -184,6 +226,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['mae-geri'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['mae-geri'];
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'mae-geri');
       return;
     }
   }
@@ -203,7 +246,19 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 }
 
 function updateFighterPhysics(fighter: Fighter) {
-  fighter.x += fighter.velocityX;
+  // Apply explosive lunge during attack startup, with distance cap
+  if (fighter.lungeFramesLeft > 0 && fighter.lungeDistanceLeft > 0) {
+    const step = Math.min(Math.abs(fighter.lungeVelocity), fighter.lungeDistanceLeft);
+    fighter.x += Math.sign(fighter.lungeVelocity) * step;
+    fighter.lungeDistanceLeft -= step;
+    fighter.lungeFramesLeft--;
+    if (fighter.lungeFramesLeft <= 0) {
+      fighter.lungeVelocity = 0;
+      fighter.lungeDistanceLeft = 0;
+    }
+  } else {
+    fighter.x += fighter.velocityX;
+  }
   fighter.x = Math.max(80, Math.min(CANVAS_WIDTH - 80, fighter.x));
 }
 
@@ -369,6 +424,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION.punch;
         opp.stamina -= PUNCH_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'punch');
         aiAction = 'idle';
       }
       break;
@@ -378,6 +434,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION['gyaku-zuki'];
         opp.stamina -= GYAKU_ZUKI_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'gyaku-zuki');
         aiAction = 'idle';
       }
       break;
@@ -387,6 +444,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION.kick;
         opp.stamina -= KICK_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'kick');
         aiAction = 'idle';
       }
       break;
@@ -396,6 +454,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION['mae-geri'];
         opp.stamina -= MAE_GERI_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'mae-geri');
         aiAction = 'idle';
       }
       break;
