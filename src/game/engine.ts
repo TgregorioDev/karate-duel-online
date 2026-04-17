@@ -183,6 +183,8 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
   // Check if in combo window (hitCooldown is set after attacks land, but we use stateTimer transition)
   const inCombo = fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW;
 
+  const target = fighter === state.player ? state.opponent : state.player;
+
   // Attacks - check all four, combo-aware
   if (input.punch && fighter.stateTimer <= 0 && fighter.hitCooldown <= 0) {
     const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
@@ -191,6 +193,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.punch * COMBO_SPEED_BONUS) : ATTACK_DURATION.punch;
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'punch');
       return;
     }
   }
@@ -201,6 +204,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['gyaku-zuki'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['gyaku-zuki'];
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'gyaku-zuki');
       return;
     }
   }
@@ -211,6 +215,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.kick * COMBO_SPEED_BONUS) : ATTACK_DURATION.kick;
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'kick');
       return;
     }
   }
@@ -221,6 +226,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['mae-geri'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['mae-geri'];
       fighter.stamina -= cost;
       fighter.velocityX = 0;
+      startLunge(fighter, target, 'mae-geri');
       return;
     }
   }
