@@ -424,6 +424,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION.punch;
         opp.stamina -= PUNCH_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'punch');
         aiAction = 'idle';
       }
       break;
@@ -433,6 +434,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION['gyaku-zuki'];
         opp.stamina -= GYAKU_ZUKI_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'gyaku-zuki');
         aiAction = 'idle';
       }
       break;
@@ -442,6 +444,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION.kick;
         opp.stamina -= KICK_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'kick');
         aiAction = 'idle';
       }
       break;
@@ -451,6 +454,7 @@ export function updateAI(state: GameState) {
         opp.stateTimer = ATTACK_DURATION['mae-geri'];
         opp.stamina -= MAE_GERI_COST;
         opp.velocityX = 0;
+        startLunge(opp, player, 'mae-geri');
         aiAction = 'idle';
       }
       break;
