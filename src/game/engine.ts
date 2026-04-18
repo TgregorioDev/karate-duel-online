@@ -2,7 +2,9 @@ import {
   Fighter, GameState, InputState,
   CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
   FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE, GYAKU_ZUKI_RANGE, MAE_GERI_RANGE,
-  STAMINA_MAX, STAMINA_REGEN, PUNCH_COST, KICK_COST, GYAKU_ZUKI_COST, MAE_GERI_COST,
+  STAMINA_MAX, STAMINA_REGEN_IDLE, STAMINA_REGEN_RETREAT, BLOCK_DRAIN,
+  PUNCH_COST, KICK_COST, GYAKU_ZUKI_COST, MAE_GERI_COST,
+  PARRY_WINDOW, PARRY_COUNTER_WINDOW, ATTACK_STARTUP_TELEGRAPH,
 } from './types';
 
 export function createFighter(x: number, facing: 'left' | 'right', color: string, accent: string, belt: string): Fighter {
@@ -13,6 +15,7 @@ export function createFighter(x: number, facing: 'left' | 'right', color: string
     stamina: STAMINA_MAX, hitCooldown: 0, blockTimer: 0,
     color, accentColor: accent, beltColor: belt,
     lungeVelocity: 0, lungeFramesLeft: 0, lungeDistanceLeft: 0,
+    parryFlash: 0, parryWindow: 0, exhausted: 0, telegraphFlash: 0,
   };
 }
 
