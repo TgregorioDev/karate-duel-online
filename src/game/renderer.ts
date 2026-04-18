@@ -1198,26 +1198,39 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.fillText(timeStr, CANVAS_WIDTH / 2, 40);
   ctx.restore();
 
-  // Stamina bars with anime style
+  // Stamina bars with anime style — pulse red when critical
   const barWidth = 140;
   const barHeight = 5;
   const barY = 50;
+  const lowPulse = 0.5 + Math.sin(Date.now() / 90) * 0.5;
 
   // Player stamina
   ctx.fillStyle = '#1a1a2a';
   ctx.fillRect(20, barY, barWidth, barHeight);
+  const pLow = state.player.stamina < 25;
   const pStamGrad = ctx.createLinearGradient(20, 0, 20 + barWidth, 0);
-  pStamGrad.addColorStop(0, state.player.stamina > 25 ? '#22cc66' : '#cccc22');
-  pStamGrad.addColorStop(1, state.player.stamina > 25 ? '#44ff88' : '#ffff44');
+  if (pLow) {
+    pStamGrad.addColorStop(0, `rgba(255,${Math.floor(60 + lowPulse * 60)},60,1)`);
+    pStamGrad.addColorStop(1, `rgba(255,${Math.floor(100 + lowPulse * 80)},80,1)`);
+  } else {
+    pStamGrad.addColorStop(0, state.player.stamina > 50 ? '#22cc66' : '#cccc22');
+    pStamGrad.addColorStop(1, state.player.stamina > 50 ? '#44ff88' : '#ffff44');
+  }
   ctx.fillStyle = pStamGrad;
   ctx.fillRect(20, barY, (state.player.stamina / STAMINA_MAX) * barWidth, barHeight);
 
   // Opponent stamina
   ctx.fillStyle = '#1a1a2a';
   ctx.fillRect(CANVAS_WIDTH - 20 - barWidth, barY, barWidth, barHeight);
+  const oLow = state.opponent.stamina < 25;
   const oStamGrad = ctx.createLinearGradient(CANVAS_WIDTH - 20 - barWidth, 0, CANVAS_WIDTH - 20, 0);
-  oStamGrad.addColorStop(0, state.opponent.stamina > 25 ? '#44ff88' : '#ffff44');
-  oStamGrad.addColorStop(1, state.opponent.stamina > 25 ? '#22cc66' : '#cccc22');
+  if (oLow) {
+    oStamGrad.addColorStop(0, `rgba(255,${Math.floor(100 + lowPulse * 80)},80,1)`);
+    oStamGrad.addColorStop(1, `rgba(255,${Math.floor(60 + lowPulse * 60)},60,1)`);
+  } else {
+    oStamGrad.addColorStop(0, state.opponent.stamina > 50 ? '#44ff88' : '#ffff44');
+    oStamGrad.addColorStop(1, state.opponent.stamina > 50 ? '#22cc66' : '#cccc22');
+  }
   ctx.fillStyle = oStamGrad;
   const oppW = (state.opponent.stamina / STAMINA_MAX) * barWidth;
   ctx.fillRect(CANVAS_WIDTH - 20 - oppW, barY, oppW, barHeight);
