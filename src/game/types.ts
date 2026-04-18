@@ -19,6 +19,11 @@ export interface Fighter {
   lungeVelocity: number;
   lungeFramesLeft: number;
   lungeDistanceLeft: number;
+  // Tactical combat additions
+  parryFlash: number;       // frames remaining for parry visual feedback
+  parryWindow: number;      // frames left in which a counter is guaranteed (after a successful parry)
+  exhausted: number;        // frames left in exhausted state (cannot act)
+  telegraphFlash: number;   // frames of startup telegraph remaining (visual cue for opponent)
 }
 
 export type FighterState = 
@@ -75,8 +80,15 @@ export const KICK_RANGE = 112;
 export const GYAKU_ZUKI_RANGE = 82;
 export const MAE_GERI_RANGE = 100;
 export const STAMINA_MAX = 100;
-export const STAMINA_REGEN = 0.5;
-export const PUNCH_COST = 15;
-export const KICK_COST = 25;
-export const GYAKU_ZUKI_COST = 20;
-export const MAE_GERI_COST = 22;
+export const STAMINA_REGEN_IDLE = 0.9;       // standing still / recovering
+export const STAMINA_REGEN_RETREAT = 0.55;   // backing away
+export const STAMINA_REGEN_ACTIVE = 0;       // walking forward / attacking / blocking — NO regen
+export const BLOCK_DRAIN = 0.35;             // stamina drained per frame while holding block
+export const PUNCH_COST = 18;
+export const KICK_COST = 28;
+export const GYAKU_ZUKI_COST = 24;
+export const MAE_GERI_COST = 26;
+// Tactical timing windows
+export const PARRY_WINDOW = 4;               // frames at start of block where a perfect parry triggers
+export const PARRY_COUNTER_WINDOW = 25;      // frames after a successful parry to land a guaranteed counter
+export const ATTACK_STARTUP_TELEGRAPH = 5;   // frames of "wind-up" before the hit frame — opponent can read this
