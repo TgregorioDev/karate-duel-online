@@ -184,6 +184,20 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 }
 
 function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
+  const isPlayer = fighter === state.player;
+  const buffer = isPlayer ? inputBuffer.player : inputBuffer.opponent;
+
+  // Push fresh inputs into the buffer (most recent press wins).
+  // This lets the player pre-input a follow-up DURING the startup of the previous attack.
+  if (input.punch) { buffer.attack = 'punch'; buffer.frames = INPUT_BUFFER_FRAMES; }
+  if (input.gyakuZuki) { buffer.attack = 'gyaku-zuki'; buffer.frames = INPUT_BUFFER_FRAMES; }
+  if (input.kick) { buffer.attack = 'kick'; buffer.frames = INPUT_BUFFER_FRAMES; }
+  if (input.maeGeri) { buffer.attack = 'mae-geri'; buffer.frames = INPUT_BUFFER_FRAMES; }
+  if (buffer.frames > 0) {
+    buffer.frames--;
+    if (buffer.frames <= 0) buffer.attack = null;
+  }
+
   // Decay visual/tactical timers
   if (fighter.parryFlash > 0) fighter.parryFlash--;
   if (fighter.parryWindow > 0) fighter.parryWindow--;
@@ -195,11 +209,12 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     fighter.exhausted--;
     fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN_IDLE * 0.6);
     fighter.velocityX = 0;
-    fighter.state = 'hit'; // reuse hit state for visual recoil/exhaustion
+    fighter.state = 'hit';
     if (fighter.exhausted <= 0) {
       fighter.state = 'idle';
       fighter.stateTimer = 0;
     }
+    buffer.attack = null; buffer.frames = 0;
     return;
   }
 
@@ -209,10 +224,10 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     if (fighter.stateTimer <= 0 && fighter.state !== 'block') {
       fighter.state = 'idle';
     }
-    if (fighter.state === 'hit') return;
+    if (fighter.state === 'hit') { buffer.attack = null; buffer.frames = 0; return; }
     // If mid-attack but NOT in the cancel window, lock out other actions
+    // (but KEEP the buffered input alive so the combo fires when cancel window opens)
     if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
-      // Update telegraph flash during startup
       const dur = ATTACK_DURATION[fighter.state] || 12;
       const hitFrame = Math.floor(dur / 2);
       if (fighter.stateTimer > hitFrame && fighter.stateTimer <= hitFrame + ATTACK_STARTUP_TELEGRAPH) {
@@ -224,22 +239,20 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   // Block — drains stamina while held; first PARRY_WINDOW frames are a parry
   if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
-    if (fighter.state !== 'block') {
-      fighter.blockTimer = 0;
-    }
+    if (fighter.state !== 'block') fighter.blockTimer = 0;
     fighter.state = 'block';
     fighter.blockTimer++;
     fighter.velocityX = 0;
-    // Drain stamina for sustained blocking
     if (fighter.blockTimer > PARRY_WINDOW) {
       fighter.stamina = Math.max(0, fighter.stamina - BLOCK_DRAIN);
-      // Out of stamina while blocking → guard breaks, exhausted
       if (fighter.stamina <= 0) {
         fighter.exhausted = 60;
         fighter.state = 'hit';
         fighter.stateTimer = 60;
       }
     }
+    // Holding block clears the buffer (player switched to defense)
+    buffer.attack = null; buffer.frames = 0;
     return;
   } else if (fighter.state === 'block' && !input.block) {
     fighter.state = 'idle';
@@ -248,35 +261,31 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   if (fighter.state === 'block') return;
 
-  // Combo bonus + parry counter bonus: parryWindow grants a guaranteed-counter discount/speed
   const inParryCounter = fighter.parryWindow > 0;
   const inCombo = inParryCounter || (fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW) || isAttackState(fighter.state);
 
-  const target = fighter === state.player ? state.opponent : state.player;
+  const target = isPlayer ? state.opponent : state.player;
   const ready = canStartAttack(fighter);
 
-  const tryAttack = (
-    inputFlag: boolean,
-    name: 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri',
-    baseCost: number,
-  ): boolean => {
-    if (!inputFlag || !ready) return false;
+  // Resolve attack from BUFFER (not raw input) — supports pre-input combos
+  if (ready && buffer.attack) {
+    const name = buffer.attack;
+    const baseCost = ATTACK_COSTS[name];
     const cost = inCombo ? baseCost * COMBO_STAMINA_BONUS : baseCost;
-    if (fighter.stamina < cost) return false;
-    fighter.state = name;
-    fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION[name] * COMBO_SPEED_BONUS) : ATTACK_DURATION[name];
-    fighter.stamina -= cost;
-    fighter.velocityX = 0;
-    fighter.telegraphFlash = ATTACK_STARTUP_TELEGRAPH;
-    if (inParryCounter) fighter.parryWindow = 0; // consumed
-    startLunge(fighter, target, name);
-    return true;
-  };
-
-  if (tryAttack(input.punch, 'punch', PUNCH_COST)) return;
-  if (tryAttack(input.gyakuZuki, 'gyaku-zuki', GYAKU_ZUKI_COST)) return;
-  if (tryAttack(input.kick, 'kick', KICK_COST)) return;
-  if (tryAttack(input.maeGeri, 'mae-geri', MAE_GERI_COST)) return;
+    if (fighter.stamina >= cost) {
+      fighter.state = name;
+      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION[name] * COMBO_SPEED_BONUS) : ATTACK_DURATION[name];
+      fighter.stamina -= cost;
+      fighter.velocityX = 0;
+      fighter.telegraphFlash = ATTACK_STARTUP_TELEGRAPH;
+      if (inParryCounter) fighter.parryWindow = 0;
+      startLunge(fighter, target, name);
+      buffer.attack = null; buffer.frames = 0;
+      return;
+    }
+    // Not enough stamina → drop the buffered attack so it doesn't auto-fire later
+    buffer.attack = null; buffer.frames = 0;
+  }
 
   // If we got here while still mid-attack (cancel window with no input), keep playing the attack
   if (isAttackState(fighter.state)) return;
