@@ -108,6 +108,49 @@ function drawAnimeBackground(ctx: CanvasRenderingContext2D) {
 function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: string) {
   const { x, y, facing, state: fState, accentColor } = fighter;
 
+  // ===== Tactical visual cues drawn in WORLD space (not flipped/scaled with body) =====
+  // Telegraph wind-up: pulsing white aura around the fighter just before the hit-frame.
+  if (fighter.telegraphFlash > 0) {
+    ctx.save();
+    const pulse = 0.35 + Math.sin(Date.now() / 40) * 0.15;
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 80, 50, 95, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Parry flash: golden ring + spark, signals counter-window opened.
+  if (fighter.parryFlash > 0) {
+    ctx.save();
+    const fade = fighter.parryFlash / 20;
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = '#ffd84a';
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#ffe066';
+    ctx.shadowBlur = 25;
+    const r = 50 + (1 - fade) * 35;
+    ctx.beginPath();
+    ctx.arc(x, y - 80, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Counter-window indicator: subtle golden underglow while the parry counter is active.
+  if (fighter.parryWindow > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + Math.sin(Date.now() / 80) * 0.15;
+    ctx.fillStyle = '#ffd84a';
+    ctx.shadowColor = '#ffd84a';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 4, 36, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.save();
   ctx.translate(x, y);
   // Global fighter scale — bigger athletes, closer presence on screen
@@ -123,9 +166,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const skin = '#e8b888';
   const skinShade = '#c4956a';
   const skinHighlight = '#f5d4b0';
-  const giMain = fState === 'hit' ? '#f0b8b8' : '#f0ece4';
-  const giShade = fState === 'hit' ? '#d49090' : '#d0ccc0';
-  const giFold = fState === 'hit' ? '#b87070' : '#b8b4a8';
+  // Telegraph tints the gi white briefly so the opponent can read the attack
+  const telegraphing = fighter.telegraphFlash > 0;
+  const giMain = telegraphing ? '#ffffff' : (fState === 'hit' ? '#f0b8b8' : '#f0ece4');
+  const giShade = telegraphing ? '#e8e8e8' : (fState === 'hit' ? '#d49090' : '#d0ccc0');
+  const giFold = telegraphing ? '#c8c8c8' : (fState === 'hit' ? '#b87070' : '#b8b4a8');
   const beltCol = '#1a1a1a';
   const gloveCol = accentColor;
 
