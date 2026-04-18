@@ -174,9 +174,24 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 }
 
 function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
-  // Stamina regen
-  fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN);
+  // Decay visual/tactical timers
+  if (fighter.parryFlash > 0) fighter.parryFlash--;
+  if (fighter.parryWindow > 0) fighter.parryWindow--;
+  if (fighter.telegraphFlash > 0) fighter.telegraphFlash--;
   if (fighter.hitCooldown > 0) fighter.hitCooldown--;
+
+  // Exhausted state — locked out, recover stamina slowly while down
+  if (fighter.exhausted > 0) {
+    fighter.exhausted--;
+    fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN_IDLE * 0.6);
+    fighter.velocityX = 0;
+    fighter.state = 'hit'; // reuse hit state for visual recoil/exhaustion
+    if (fighter.exhausted <= 0) {
+      fighter.state = 'idle';
+      fighter.stateTimer = 0;
+    }
+    return;
+  }
 
   // State timer
   if (fighter.stateTimer > 0) {
@@ -186,10 +201,18 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     }
     if (fighter.state === 'hit') return;
     // If mid-attack but NOT in the cancel window, lock out other actions
-    if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) return;
+    if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
+      // Update telegraph flash during startup
+      const dur = ATTACK_DURATION[fighter.state] || 12;
+      const hitFrame = Math.floor(dur / 2);
+      if (fighter.stateTimer > hitFrame && fighter.stateTimer <= hitFrame + ATTACK_STARTUP_TELEGRAPH) {
+        fighter.telegraphFlash = 2;
+      }
+      return;
+    }
   }
 
-  // Block (only when not mid-attack)
+  // Block — drains stamina while held; first PARRY_WINDOW frames are a parry
   if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
     if (fighter.state !== 'block') {
       fighter.blockTimer = 0;
@@ -197,6 +220,16 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     fighter.state = 'block';
     fighter.blockTimer++;
     fighter.velocityX = 0;
+    // Drain stamina for sustained blocking
+    if (fighter.blockTimer > PARRY_WINDOW) {
+      fighter.stamina = Math.max(0, fighter.stamina - BLOCK_DRAIN);
+      // Out of stamina while blocking → guard breaks, exhausted
+      if (fighter.stamina <= 0) {
+        fighter.exhausted = 60;
+        fighter.state = 'hit';
+        fighter.stateTimer = 60;
+      }
+    }
     return;
   } else if (fighter.state === 'block' && !input.block) {
     fighter.state = 'idle';
@@ -205,72 +238,56 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
 
   if (fighter.state === 'block') return;
 
-  // Combo bonus: applies if chaining within the post-attack combo window OR cancelling out of an attack's recovery
-  const inCombo = (fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW) || isAttackState(fighter.state);
+  // Combo bonus + parry counter bonus: parryWindow grants a guaranteed-counter discount/speed
+  const inParryCounter = fighter.parryWindow > 0;
+  const inCombo = inParryCounter || (fighter.hitCooldown > 0 && fighter.hitCooldown <= COMBO_WINDOW) || isAttackState(fighter.state);
 
   const target = fighter === state.player ? state.opponent : state.player;
   const ready = canStartAttack(fighter);
 
-  // Attacks - check all four. Allow during cancel window for fluid sequences (kizami → gyaku-zuki, etc.)
-  if (input.punch && ready) {
-    const cost = inCombo ? PUNCH_COST * COMBO_STAMINA_BONUS : PUNCH_COST;
-    if (fighter.stamina >= cost) {
-      fighter.state = 'punch';
-      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.punch * COMBO_SPEED_BONUS) : ATTACK_DURATION.punch;
-      fighter.stamina -= cost;
-      fighter.velocityX = 0;
-      startLunge(fighter, target, 'punch');
-      return;
-    }
-  }
-  if (input.gyakuZuki && ready) {
-    const cost = inCombo ? GYAKU_ZUKI_COST * COMBO_STAMINA_BONUS : GYAKU_ZUKI_COST;
-    if (fighter.stamina >= cost) {
-      fighter.state = 'gyaku-zuki';
-      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['gyaku-zuki'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['gyaku-zuki'];
-      fighter.stamina -= cost;
-      fighter.velocityX = 0;
-      startLunge(fighter, target, 'gyaku-zuki');
-      return;
-    }
-  }
-  if (input.kick && ready) {
-    const cost = inCombo ? KICK_COST * COMBO_STAMINA_BONUS : KICK_COST;
-    if (fighter.stamina >= cost) {
-      fighter.state = 'kick';
-      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION.kick * COMBO_SPEED_BONUS) : ATTACK_DURATION.kick;
-      fighter.stamina -= cost;
-      fighter.velocityX = 0;
-      startLunge(fighter, target, 'kick');
-      return;
-    }
-  }
-  if (input.maeGeri && ready) {
-    const cost = inCombo ? MAE_GERI_COST * COMBO_STAMINA_BONUS : MAE_GERI_COST;
-    if (fighter.stamina >= cost) {
-      fighter.state = 'mae-geri';
-      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION['mae-geri'] * COMBO_SPEED_BONUS) : ATTACK_DURATION['mae-geri'];
-      fighter.stamina -= cost;
-      fighter.velocityX = 0;
-      startLunge(fighter, target, 'mae-geri');
-      return;
-    }
-  }
+  const tryAttack = (
+    inputFlag: boolean,
+    name: 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri',
+    baseCost: number,
+  ): boolean => {
+    if (!inputFlag || !ready) return false;
+    const cost = inCombo ? baseCost * COMBO_STAMINA_BONUS : baseCost;
+    if (fighter.stamina < cost) return false;
+    fighter.state = name;
+    fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION[name] * COMBO_SPEED_BONUS) : ATTACK_DURATION[name];
+    fighter.stamina -= cost;
+    fighter.velocityX = 0;
+    fighter.telegraphFlash = ATTACK_STARTUP_TELEGRAPH;
+    if (inParryCounter) fighter.parryWindow = 0; // consumed
+    startLunge(fighter, target, name);
+    return true;
+  };
+
+  if (tryAttack(input.punch, 'punch', PUNCH_COST)) return;
+  if (tryAttack(input.gyakuZuki, 'gyaku-zuki', GYAKU_ZUKI_COST)) return;
+  if (tryAttack(input.kick, 'kick', KICK_COST)) return;
+  if (tryAttack(input.maeGeri, 'mae-geri', MAE_GERI_COST)) return;
 
   // If we got here while still mid-attack (cancel window with no input), keep playing the attack
   if (isAttackState(fighter.state)) return;
 
-  // Movement
+  // Movement + stamina regen based on action
   const speed = 3.5;
   if (input.left) {
     fighter.velocityX = -speed;
-    fighter.state = fighter.facing === 'left' ? 'walk-forward' : 'walk-backward';
+    const movingBackward = fighter.facing === 'right';
+    fighter.state = movingBackward ? 'walk-backward' : 'walk-forward';
+    if (movingBackward) fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN_RETREAT);
   } else if (input.right) {
     fighter.velocityX = speed;
-    fighter.state = fighter.facing === 'right' ? 'walk-forward' : 'walk-backward';
+    const movingBackward = fighter.facing === 'left';
+    fighter.state = movingBackward ? 'walk-backward' : 'walk-forward';
+    if (movingBackward) fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN_RETREAT);
   } else {
     fighter.velocityX = 0;
     if (fighter.state === 'walk-forward' || fighter.state === 'walk-backward') fighter.state = 'idle';
+    // Idle — full regen
+    fighter.stamina = Math.min(STAMINA_MAX, fighter.stamina + STAMINA_REGEN_IDLE);
   }
 }
 
