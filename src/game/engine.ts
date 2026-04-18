@@ -109,6 +109,16 @@ const COMBO_STAMINA_BONUS = 0.8; // stamina cost multiplier
 // a new attack input can cancel the recovery, enabling fluid sequences like kizami → gyaku-zuki.
 const CANCEL_WINDOW = 6;
 
+// Input buffer: remembers an attack press for N frames so the player can pre-input
+// a combo follow-up during the startup of the previous attack. The buffered attack
+// fires automatically as soon as the cancel window opens.
+const INPUT_BUFFER_FRAMES = 12;
+type BufferedAttack = 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri';
+const inputBuffer: { player: { attack: BufferedAttack | null; frames: number }, opponent: { attack: BufferedAttack | null; frames: number } } = {
+  player: { attack: null, frames: 0 },
+  opponent: { attack: null, frames: 0 },
+};
+
 function canStartAttack(fighter: Fighter): boolean {
   // Free to act when not currently attacking, or when in the cancel window of an ongoing attack
   if (fighter.state === 'hit') return false;
