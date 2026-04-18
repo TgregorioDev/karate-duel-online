@@ -349,11 +349,31 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
   if (dist > range) return;
 
-  // Blocked? Only effective if timed correctly (within first 12 frames)
-  const BLOCK_WINDOW = 12;
-  if (defender.state === 'block' && defender.blockTimer <= BLOCK_WINDOW) {
+  // PARRY — first PARRY_WINDOW frames of block = perfect timing → counter window opens
+  if (defender.state === 'block' && defender.blockTimer <= PARRY_WINDOW) {
+    state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 18, type: 'punch' };
+    defender.parryFlash = 20;
+    defender.parryWindow = PARRY_COUNTER_WINDOW;
+    defender.stamina = Math.min(STAMINA_MAX, defender.stamina + 15); // reward perfect timing
+    // Attacker stunned briefly, exposed to counter
+    attacker.state = 'hit';
+    attacker.stateTimer = 18;
+    attacker.hitCooldown = 12;
+    state.judgeMessage = 'PARRY!';
+    state.judgeTimer = 35;
+    return;
+  }
+
+  // Late block — partial protection, no counter, costs stamina
+  const LATE_BLOCK_WINDOW = 14;
+  if (defender.state === 'block' && defender.blockTimer <= LATE_BLOCK_WINDOW) {
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 10, type: 'punch' };
-    defender.stamina -= 5;
+    defender.stamina = Math.max(0, defender.stamina - 12);
+    if (defender.stamina <= 0) {
+      defender.exhausted = 60;
+      defender.state = 'hit';
+      defender.stateTimer = 60;
+    }
     return;
   }
 
