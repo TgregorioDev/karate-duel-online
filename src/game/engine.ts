@@ -63,6 +63,14 @@ export function resetPositions(state: GameState) {
   state.opponent.lungeVelocity = 0;
   state.opponent.lungeFramesLeft = 0;
   state.opponent.lungeDistanceLeft = 0;
+  state.player.parryFlash = 0;
+  state.player.parryWindow = 0;
+  state.player.exhausted = 0;
+  state.player.telegraphFlash = 0;
+  state.opponent.parryFlash = 0;
+  state.opponent.parryWindow = 0;
+  state.opponent.exhausted = 0;
+  state.opponent.telegraphFlash = 0;
   state.hitEffect = null;
 }
 
