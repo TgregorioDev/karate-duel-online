@@ -1323,23 +1323,25 @@ function drawAnimeMenu(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = 'rgba(20,10,30,0.7)';
   ctx.strokeStyle = '#cc2233';
   ctx.lineWidth = 2;
-  const panelX = cx - 160;
-  const panelY = 220;
-  ctx.fillRect(panelX, panelY, 320, 160);
-  ctx.strokeRect(panelX, panelY, 320, 160);
+  const panelX = cx - 180;
+  const panelY = 215;
+  ctx.fillRect(panelX, panelY, 360, 215);
+  ctx.strokeRect(panelX, panelY, 360, 215);
 
   ctx.fillStyle = '#ddd';
-  ctx.font = '15px sans-serif';
+  ctx.font = '14px sans-serif';
   const instructions = [
-    '← → ou A/D — Mover',
-    'Z ou J — Soco (Oi-zuki)',
-    'V ou N — Gyaku-zuki',
-    'X ou K — Chute (Yoko-geri)',
-    'B ou M — Mae-geri',
-    'C ou L — Defesa (Uchi-uke)',
+    '← → ou A/D — Mover  •  C/L — Defesa',
+    'Z — Kizami    V — Gyaku-zuki',
+    'X — Yoko-geri    B — Mae-geri',
+    '',
+    '⚡ TÁTICA: stamina só recupera parado/recuando.',
+    '🛡 PARRY: defenda no instante exato do golpe',
+    '   (4 frames) → contra-ataque garantido!',
+    '⚠ Telegraph: aura branca avisa o golpe — leia!',
   ];
   instructions.forEach((text, i) => {
-    ctx.fillText(text, cx, panelY + 25 + i * 22);
+    ctx.fillText(text, cx, panelY + 22 + i * 22);
   });
 
   // Blinking start text
