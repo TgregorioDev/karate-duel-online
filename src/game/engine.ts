@@ -602,6 +602,7 @@ function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku
   opp.stateTimer = chaining ? Math.floor(baseDuration * COMBO_SPEED_BONUS) : baseDuration;
   opp.stamina -= cost;
   opp.velocityX = 0;
+  opp.telegraphFlash = ATTACK_STARTUP_TELEGRAPH;
   startLunge(opp, player, attack);
   return true;
 }
