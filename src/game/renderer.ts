@@ -1064,8 +1064,9 @@ function drawAnimeHead(
 
 // ============ ANIME HIT EFFECT ============
 function drawAnimeHitEffect(ctx: CanvasRenderingContext2D, effect: { x: number; y: number; timer: number; type: string }) {
-  const alpha = effect.timer / 15;
-  const size = (15 - effect.timer) * 3.5;
+  const maxTimer = Math.max(15, effect.timer);
+  const alpha = Math.max(0, Math.min(1, effect.timer / maxTimer));
+  const size = Math.max(2, (maxTimer - effect.timer) * 3.5);
   
   ctx.save();
   ctx.globalAlpha = alpha;
