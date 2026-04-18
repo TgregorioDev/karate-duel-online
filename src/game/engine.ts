@@ -418,8 +418,21 @@ export function updateAI(state: GameState) {
   const opp = state.opponent;
   const player = state.player;
 
-  opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN);
+  // Tactical timers
+  if (opp.parryFlash > 0) opp.parryFlash--;
+  if (opp.parryWindow > 0) opp.parryWindow--;
+  if (opp.telegraphFlash > 0) opp.telegraphFlash--;
   if (opp.hitCooldown > 0) opp.hitCooldown--;
+
+  // Exhausted lock-out
+  if (opp.exhausted > 0) {
+    opp.exhausted--;
+    opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_IDLE * 0.6);
+    opp.velocityX = 0;
+    opp.state = 'hit';
+    if (opp.exhausted <= 0) { opp.state = 'idle'; opp.stateTimer = 0; }
+    return;
+  }
 
   if (opp.stateTimer > 0) {
     opp.stateTimer--;
@@ -427,6 +440,12 @@ export function updateAI(state: GameState) {
     if (opp.state === 'hit') return;
     // Mid-attack: only allow chaining a queued combo during the cancel window
     if (isAttackState(opp.state)) {
+      // telegraph during startup
+      const dur = ATTACK_DURATION[opp.state] || 12;
+      const hitFrame = Math.floor(dur / 2);
+      if (opp.stateTimer > hitFrame && opp.stateTimer <= hitFrame + ATTACK_STARTUP_TELEGRAPH) {
+        opp.telegraphFlash = 2;
+      }
       if (opp.stateTimer <= CANCEL_WINDOW && aiComboNext) {
         const queued = aiComboNext;
         aiComboNext = null;
@@ -440,15 +459,30 @@ export function updateAI(state: GameState) {
   const dist = Math.abs(opp.x - player.x);
   const diff = state.aiDifficulty;
 
+  // React to player's TELEGRAPH (smarter AI uses the wind-up window for parry attempts)
+  const playerTelegraphing = player.telegraphFlash > 0 && isAttackState(player.state);
+
   aiActionTimer--;
   if (aiActionTimer <= 0) {
     const rand = Math.random();
 
-    if (isAttackState(player.state)) {
-      // React to player attack
-      if (rand < diff * 0.7) {
+    if (playerTelegraphing && dist < KICK_RANGE + 20) {
+      // High-skill AI tries to PARRY (block at the right frame)
+      if (rand < diff * 0.85) {
         aiAction = 'block';
-        aiActionTimer = 20;
+        aiActionTimer = 10;
+      } else if (rand < diff) {
+        aiAction = 'retreat';
+        aiActionTimer = 12;
+      } else {
+        aiAction = 'idle';
+        aiActionTimer = 8;
+      }
+    } else if (isAttackState(player.state)) {
+      // Already mid-attack — react defensively
+      if (rand < diff * 0.6) {
+        aiAction = 'block';
+        aiActionTimer = 18;
       } else if (rand < diff) {
         aiAction = 'retreat';
         aiActionTimer = 15;
@@ -456,9 +490,20 @@ export function updateAI(state: GameState) {
         aiAction = 'idle';
         aiActionTimer = 10;
       }
+    } else if (opp.parryWindow > 0 && dist < GYAKU_ZUKI_RANGE + 15) {
+      // AI just parried — punish with guaranteed counter
+      const counterRoll = Math.random();
+      if (counterRoll < 0.5) aiAction = 'gyaku-zuki';
+      else if (counterRoll < 0.8) aiAction = 'punch';
+      else aiAction = 'kick';
+      aiActionTimer = 6;
+    } else if (opp.stamina < 30) {
+      // LOW STAMINA — back away, recover, no aggression
+      aiAction = 'retreat';
+      aiActionTimer = 25;
     } else if (dist < GYAKU_ZUKI_RANGE + 10 && opp.stamina >= GYAKU_ZUKI_COST) {
-      // Close range - use variety of attacks, sometimes pre-planning a combo
-      if (rand < diff * 0.5) {
+      // Close range - pick attacks based on stamina + difficulty
+      if (rand < diff * 0.45) {
         const attackRoll = Math.random();
         if (attackRoll < 0.3) aiAction = 'punch';
         else if (attackRoll < 0.55) aiAction = 'gyaku-zuki';
@@ -466,8 +511,8 @@ export function updateAI(state: GameState) {
         else aiAction = 'mae-geri';
         aiActionTimer = 8;
 
-        // Plan a follow-up combo (kizami → gyaku-zuki being a classic), chance scales with difficulty
-        if (Math.random() < 0.35 + diff * 0.4) {
+        // Plan a follow-up combo (only if enough stamina to chain)
+        if (opp.stamina > 50 && Math.random() < 0.3 + diff * 0.4) {
           if (aiAction === 'punch') aiComboNext = Math.random() < 0.7 ? 'gyaku-zuki' : 'mae-geri';
           else if (aiAction === 'gyaku-zuki') aiComboNext = Math.random() < 0.5 ? 'punch' : 'kick';
           else if (aiAction === 'kick') aiComboNext = 'gyaku-zuki';
@@ -476,11 +521,11 @@ export function updateAI(state: GameState) {
           aiComboNext = null;
         }
       } else {
-        aiAction = Math.random() < 0.5 ? 'retreat' : 'block';
-        aiActionTimer = 20;
+        aiAction = Math.random() < 0.5 ? 'retreat' : 'idle';
+        aiActionTimer = 18;
       }
     } else if (dist < KICK_RANGE + 20 && opp.stamina >= KICK_COST) {
-      if (rand < diff * 0.4) {
+      if (rand < diff * 0.35) {
         aiAction = Math.random() < 0.5 ? 'kick' : 'mae-geri';
         aiActionTimer = 10;
       } else {
@@ -488,12 +533,12 @@ export function updateAI(state: GameState) {
         aiActionTimer = 15;
       }
     } else {
-      aiAction = rand < 0.7 ? 'advance' : 'idle';
+      aiAction = rand < 0.6 ? 'advance' : 'idle';
       aiActionTimer = 20 + Math.floor(Math.random() * 20);
     }
   }
 
-  // Execute action
+  // Execute action with action-based stamina regen
   const speed = 2.5 + diff;
   const dir = player.x < opp.x ? -1 : 1;
 
@@ -505,6 +550,7 @@ export function updateAI(state: GameState) {
     case 'retreat':
       opp.velocityX = -dir * (speed * 0.8);
       opp.state = 'walk-backward';
+      opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_RETREAT);
       break;
     case 'punch':
     case 'gyaku-zuki':
@@ -515,16 +561,25 @@ export function updateAI(state: GameState) {
       }
       break;
     case 'block':
-      if (opp.state !== 'block') {
-        opp.blockTimer = 0;
-      }
+      if (opp.state !== 'block') opp.blockTimer = 0;
       opp.state = 'block';
       opp.blockTimer++;
       opp.velocityX = 0;
+      // Drain stamina while blocking past parry window
+      if (opp.blockTimer > PARRY_WINDOW) {
+        opp.stamina = Math.max(0, opp.stamina - BLOCK_DRAIN);
+        if (opp.stamina <= 0) {
+          opp.exhausted = 60;
+          opp.state = 'hit';
+          opp.stateTimer = 60;
+        }
+      }
       break;
     default:
       opp.velocityX = 0;
       if (opp.state === 'walk-forward' || opp.state === 'walk-backward') opp.state = 'idle';
+      // Idle regen
+      opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_IDLE);
   }
 }
 
