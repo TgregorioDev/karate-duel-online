@@ -108,6 +108,49 @@ function drawAnimeBackground(ctx: CanvasRenderingContext2D) {
 function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: string) {
   const { x, y, facing, state: fState, accentColor } = fighter;
 
+  // ===== Tactical visual cues drawn in WORLD space (not flipped/scaled with body) =====
+  // Telegraph wind-up: pulsing white aura around the fighter just before the hit-frame.
+  if (fighter.telegraphFlash > 0) {
+    ctx.save();
+    const pulse = 0.35 + Math.sin(Date.now() / 40) * 0.15;
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 80, 50, 95, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Parry flash: golden ring + spark, signals counter-window opened.
+  if (fighter.parryFlash > 0) {
+    ctx.save();
+    const fade = fighter.parryFlash / 20;
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = '#ffd84a';
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#ffe066';
+    ctx.shadowBlur = 25;
+    const r = 50 + (1 - fade) * 35;
+    ctx.beginPath();
+    ctx.arc(x, y - 80, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Counter-window indicator: subtle golden underglow while the parry counter is active.
+  if (fighter.parryWindow > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + Math.sin(Date.now() / 80) * 0.15;
+    ctx.fillStyle = '#ffd84a';
+    ctx.shadowColor = '#ffd84a';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 4, 36, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.save();
   ctx.translate(x, y);
   // Global fighter scale — bigger athletes, closer presence on screen
@@ -123,9 +166,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const skin = '#e8b888';
   const skinShade = '#c4956a';
   const skinHighlight = '#f5d4b0';
-  const giMain = fState === 'hit' ? '#f0b8b8' : '#f0ece4';
-  const giShade = fState === 'hit' ? '#d49090' : '#d0ccc0';
-  const giFold = fState === 'hit' ? '#b87070' : '#b8b4a8';
+  // Telegraph tints the gi white briefly so the opponent can read the attack
+  const telegraphing = fighter.telegraphFlash > 0;
+  const giMain = telegraphing ? '#ffffff' : (fState === 'hit' ? '#f0b8b8' : '#f0ece4');
+  const giShade = telegraphing ? '#e8e8e8' : (fState === 'hit' ? '#d49090' : '#d0ccc0');
+  const giFold = telegraphing ? '#c8c8c8' : (fState === 'hit' ? '#b87070' : '#b8b4a8');
   const beltCol = '#1a1a1a';
   const gloveCol = accentColor;
 
@@ -1153,26 +1198,39 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.fillText(timeStr, CANVAS_WIDTH / 2, 40);
   ctx.restore();
 
-  // Stamina bars with anime style
+  // Stamina bars with anime style — pulse red when critical
   const barWidth = 140;
   const barHeight = 5;
   const barY = 50;
+  const lowPulse = 0.5 + Math.sin(Date.now() / 90) * 0.5;
 
   // Player stamina
   ctx.fillStyle = '#1a1a2a';
   ctx.fillRect(20, barY, barWidth, barHeight);
+  const pLow = state.player.stamina < 25;
   const pStamGrad = ctx.createLinearGradient(20, 0, 20 + barWidth, 0);
-  pStamGrad.addColorStop(0, state.player.stamina > 25 ? '#22cc66' : '#cccc22');
-  pStamGrad.addColorStop(1, state.player.stamina > 25 ? '#44ff88' : '#ffff44');
+  if (pLow) {
+    pStamGrad.addColorStop(0, `rgba(255,${Math.floor(60 + lowPulse * 60)},60,1)`);
+    pStamGrad.addColorStop(1, `rgba(255,${Math.floor(100 + lowPulse * 80)},80,1)`);
+  } else {
+    pStamGrad.addColorStop(0, state.player.stamina > 50 ? '#22cc66' : '#cccc22');
+    pStamGrad.addColorStop(1, state.player.stamina > 50 ? '#44ff88' : '#ffff44');
+  }
   ctx.fillStyle = pStamGrad;
   ctx.fillRect(20, barY, (state.player.stamina / STAMINA_MAX) * barWidth, barHeight);
 
   // Opponent stamina
   ctx.fillStyle = '#1a1a2a';
   ctx.fillRect(CANVAS_WIDTH - 20 - barWidth, barY, barWidth, barHeight);
+  const oLow = state.opponent.stamina < 25;
   const oStamGrad = ctx.createLinearGradient(CANVAS_WIDTH - 20 - barWidth, 0, CANVAS_WIDTH - 20, 0);
-  oStamGrad.addColorStop(0, state.opponent.stamina > 25 ? '#44ff88' : '#ffff44');
-  oStamGrad.addColorStop(1, state.opponent.stamina > 25 ? '#22cc66' : '#cccc22');
+  if (oLow) {
+    oStamGrad.addColorStop(0, `rgba(255,${Math.floor(100 + lowPulse * 80)},80,1)`);
+    oStamGrad.addColorStop(1, `rgba(255,${Math.floor(60 + lowPulse * 60)},60,1)`);
+  } else {
+    oStamGrad.addColorStop(0, state.opponent.stamina > 50 ? '#44ff88' : '#ffff44');
+    oStamGrad.addColorStop(1, state.opponent.stamina > 50 ? '#22cc66' : '#cccc22');
+  }
   ctx.fillStyle = oStamGrad;
   const oppW = (state.opponent.stamina / STAMINA_MAX) * barWidth;
   ctx.fillRect(CANVAS_WIDTH - 20 - oppW, barY, oppW, barHeight);
@@ -1265,23 +1323,25 @@ function drawAnimeMenu(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = 'rgba(20,10,30,0.7)';
   ctx.strokeStyle = '#cc2233';
   ctx.lineWidth = 2;
-  const panelX = cx - 160;
-  const panelY = 220;
-  ctx.fillRect(panelX, panelY, 320, 160);
-  ctx.strokeRect(panelX, panelY, 320, 160);
+  const panelX = cx - 180;
+  const panelY = 215;
+  ctx.fillRect(panelX, panelY, 360, 215);
+  ctx.strokeRect(panelX, panelY, 360, 215);
 
   ctx.fillStyle = '#ddd';
-  ctx.font = '15px sans-serif';
+  ctx.font = '14px sans-serif';
   const instructions = [
-    '← → ou A/D — Mover',
-    'Z ou J — Soco (Oi-zuki)',
-    'V ou N — Gyaku-zuki',
-    'X ou K — Chute (Yoko-geri)',
-    'B ou M — Mae-geri',
-    'C ou L — Defesa (Uchi-uke)',
+    '← → ou A/D — Mover  •  C/L — Defesa',
+    'Z — Kizami    V — Gyaku-zuki',
+    'X — Yoko-geri    B — Mae-geri',
+    '',
+    '⚡ TÁTICA: stamina só recupera parado/recuando.',
+    '🛡 PARRY: defenda no instante exato do golpe',
+    '   (4 frames) → contra-ataque garantido!',
+    '⚠ Telegraph: aura branca avisa o golpe — leia!',
   ];
   instructions.forEach((text, i) => {
-    ctx.fillText(text, cx, panelY + 25 + i * 22);
+    ctx.fillText(text, cx, panelY + 22 + i * 22);
   });
 
   // Blinking start text
