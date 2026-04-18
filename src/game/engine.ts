@@ -80,6 +80,12 @@ const ATTACK_DURATION: Record<string, number> = {
   'gyaku-zuki': 14,
   'mae-geri': 16,
 };
+const ATTACK_COSTS: Record<string, number> = {
+  punch: PUNCH_COST,
+  'gyaku-zuki': GYAKU_ZUKI_COST,
+  kick: KICK_COST,
+  'mae-geri': MAE_GERI_COST,
+};
 const HIT_STUN = 20;
 
 // Explosive lunge (tobikomi) — burst forward at the start of each attack.
@@ -601,13 +607,6 @@ export function updateAI(state: GameState) {
       opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_IDLE);
   }
 }
-
-const ATTACK_COSTS: Record<string, number> = {
-  punch: PUNCH_COST,
-  'gyaku-zuki': GYAKU_ZUKI_COST,
-  kick: KICK_COST,
-  'mae-geri': MAE_GERI_COST,
-};
 
 function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri', _diff: number): boolean {
   const baseCost = ATTACK_COSTS[attack];
