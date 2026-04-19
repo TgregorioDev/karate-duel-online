@@ -9,6 +9,9 @@ const OUTLINE_COL = '#1a1012';
 export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   drawAnimeBackground(ctx);
+  // Judge sits in the back of the dojo BEFORE the fighters render,
+  // so the athletes always appear in front and combat is never obstructed.
+  drawJudge(ctx, state);
   drawFighter(ctx, state.player, 'P1');
   drawFighter(ctx, state.opponent, 'P2');
   if (state.hitEffect) drawAnimeHitEffect(ctx, state.hitEffect);
@@ -16,6 +19,151 @@ export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   if (state.judgeTimer > 0) drawAnimeJudgeMessage(ctx, state.judgeMessage);
   if (state.gameStatus === 'menu') drawAnimeMenu(ctx);
   if (state.gameStatus === 'game-over') drawAnimeGameOver(ctx, state);
+}
+
+// ============ JUDGE (REFEREE) ============
+// Drawn at the back of the dojo, on a slight rise, behind & between the fighters.
+// Smaller scale + faded contrast so the eye prioritizes the athletes in the foreground.
+function drawJudge(ctx: CanvasRenderingContext2D, state: GameState) {
+  const j = state.judge;
+  const jx = CANVAS_WIDTH / 2;
+  const jy = GROUND_Y - 78;
+  const scale = 0.62;
+
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = 'rgba(10,5,20,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(jx, jy + 78, 26, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.translate(jx, jy);
+  ctx.scale(scale, scale);
+
+  const aka = state.player;
+  const ao = state.opponent;
+  const akaSideSign = aka.x < ao.x ? -1 : 1;
+  const aoSideSign = -akaSideSign;
+  const pointDir = j.side === 'aka' ? akaSideSign : (j.side === 'ao' ? aoSideSign : 0);
+
+  const skin = '#d9a878';
+  const skinShade = '#b88458';
+  const jacket = '#1a1a22';
+  const jacketShade = '#0d0d14';
+  const shirt = '#f4f0e6';
+  const tie = '#7a1e2a';
+  const trouser = '#0d0d14';
+
+  // Legs
+  ctx.fillStyle = trouser;
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = OUTLINE_W;
+  ctx.beginPath(); ctx.rect(-14, 14, 12, 60); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.rect(2, 14, 12, 60); ctx.fill(); ctx.stroke();
+  // Shoes
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(-8, 78, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(8, 78, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // Torso (jacket)
+  ctx.fillStyle = jacket;
+  ctx.beginPath();
+  ctx.moveTo(-22, 14); ctx.lineTo(-20, -34); ctx.lineTo(20, -34); ctx.lineTo(22, 14);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // Shirt V + tie
+  ctx.fillStyle = shirt;
+  ctx.beginPath();
+  ctx.moveTo(-7, -34); ctx.lineTo(7, -34); ctx.lineTo(0, -14);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = tie;
+  ctx.beginPath();
+  ctx.moveTo(-3, -28); ctx.lineTo(3, -28); ctx.lineTo(2, 4); ctx.lineTo(-2, 4);
+  ctx.closePath(); ctx.fill();
+
+  // Lapels
+  ctx.fillStyle = jacketShade;
+  ctx.beginPath(); ctx.moveTo(-20, -34); ctx.lineTo(-2, -16); ctx.lineTo(-14, 6); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(20, -34); ctx.lineTo(2, -16); ctx.lineTo(14, 6); ctx.closePath(); ctx.fill();
+
+  // Arms
+  drawJudgeArms(ctx, j.state, pointDir, jacket, skin, skinShade);
+
+  // Head
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(0, -44, 11, 13, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Hair
+  ctx.fillStyle = '#1a1015';
+  ctx.beginPath();
+  ctx.ellipse(0, -52, 11, 7, 0, Math.PI, 0);
+  ctx.fill();
+  // Eyes
+  ctx.fillStyle = '#1a1015';
+  const eyeOffset = pointDir === 0 ? 0 : pointDir * 1.5;
+  ctx.beginPath(); ctx.arc(-3 + eyeOffset, -44, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(3 + eyeOffset, -44, 1.2, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+
+  if (state.gameStatus === 'bow-in' || state.gameStatus === 'bow-out' || j.state === 'point' || j.state === 'winner') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = 'italic 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SHUSHIN (主審)', jx, jy + 96);
+    ctx.restore();
+  }
+}
+
+function drawJudgeArms(
+  ctx: CanvasRenderingContext2D,
+  jState: 'idle' | 'point' | 'hajime' | 'yame' | 'winner',
+  pointDir: number,
+  jacket: string,
+  skin: string,
+  _skinShade: string,
+) {
+  ctx.fillStyle = jacket;
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = OUTLINE_W;
+
+  const drawArm = (sx: number, sy: number, ex: number, ey: number, hand = true) => {
+    ctx.fillStyle = jacket;
+    ctx.beginPath();
+    ctx.moveTo(sx - 4, sy);
+    ctx.lineTo(sx + 4, sy);
+    ctx.lineTo(ex + 3, ey);
+    ctx.lineTo(ex - 3, ey);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    if (hand) {
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 4, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+  };
+
+  if (jState === 'point' && pointDir !== 0) {
+    const dir = pointDir;
+    drawArm(dir * 14, -28, dir * 46, -10);
+    drawArm(-dir * 14, -28, -dir * 16, 10);
+  } else if (jState === 'winner' && pointDir !== 0) {
+    const dir = pointDir;
+    drawArm(dir * 14, -28, dir * 40, -64);
+    drawArm(-dir * 14, -28, -dir * 16, 10);
+  } else if (jState === 'hajime') {
+    drawArm(-14, -28, -22, 14);
+    drawArm(14, -28, 22, 14);
+  } else if (jState === 'yame') {
+    drawArm(-14, -28, -16, 10);
+    drawArm(14, -28, 26, -42);
+  } else {
+    drawArm(-14, -28, -16, 12);
+    drawArm(14, -28, 16, 12);
+  }
 }
 
 // ============ ANIME BACKGROUND ============
