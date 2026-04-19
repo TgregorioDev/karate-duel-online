@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { createInitialState, updateGame, resetPositions } from '@/game/engine';
+import { createInitialState, updateGame, resetPositions, startBowIn } from '@/game/engine';
 import { renderGame } from '@/game/renderer';
 import { GameState, InputState, CANVAS_WIDTH, CANVAS_HEIGHT, FIGHT_DURATION } from '@/game/types';
 
@@ -14,9 +14,7 @@ export default function KarateGame() {
     const gs = gameStateRef.current;
     if (gs.gameStatus === 'menu' || gs.gameStatus === 'game-over') {
       const fresh = createInitialState();
-      fresh.gameStatus = 'fighting';
-      fresh.judgeMessage = 'HAJIME!';
-      fresh.judgeTimer = 60;
+      startBowIn(fresh);
       gameStateRef.current = fresh;
     }
   }, []);
