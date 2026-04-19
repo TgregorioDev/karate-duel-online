@@ -1,5 +1,5 @@
 import {
-  Fighter, GameState, InputState,
+  Fighter, GameState, InputState, JudgeSide,
   CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
   FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE, GYAKU_ZUKI_RANGE, MAE_GERI_RANGE,
   STAMINA_MAX, STAMINA_REGEN_IDLE, STAMINA_REGEN_RETREAT, BLOCK_DRAIN,
@@ -43,7 +43,42 @@ export function createInitialState(): GameState {
     judgeMessage: '',
     judgeTimer: 0,
     hitEffect: null,
+    judge: { state: 'idle', side: null, timer: 0 },
+    ceremonyTimer: 0,
   };
+}
+
+// ===== Ceremony helpers =====
+const BOW_DURATION = 110;          // frames lutadores ficam reverenciando
+const HAJIME_HOLD = 50;            // frames com juiz no gesto de HAJIME antes da luta
+const POINT_HOLD = 90;             // frames com juiz apontando para o ponto
+const WINNER_HOLD = 180;           // frames de cerimônia final apontando o vencedor
+
+export function startBowIn(state: GameState) {
+  state.gameStatus = 'bow-in';
+  state.ceremonyTimer = BOW_DURATION + HAJIME_HOLD;
+  state.player.state = 'bow';
+  state.opponent.state = 'bow';
+  state.player.stateTimer = BOW_DURATION;
+  state.opponent.stateTimer = BOW_DURATION;
+  state.judge = { state: 'idle', side: null, timer: BOW_DURATION };
+  state.judgeMessage = 'REI';
+  state.judgeTimer = BOW_DURATION;
+}
+
+export function startBowOut(state: GameState) {
+  state.gameStatus = 'bow-out';
+  state.ceremonyTimer = BOW_DURATION + 60;
+  state.player.state = 'bow';
+  state.opponent.state = 'bow';
+  state.player.stateTimer = BOW_DURATION;
+  state.opponent.stateTimer = BOW_DURATION;
+  let side: JudgeSide = null;
+  if (state.winner === 'player') side = 'aka';
+  else if (state.winner === 'opponent') side = 'ao';
+  state.judge = { state: 'winner', side, timer: WINNER_HOLD };
+  state.judgeMessage = state.winner === 'draw' ? 'HIKIWAKE' : 'SHOBU ARI!';
+  state.judgeTimer = WINNER_HOLD;
 }
 
 export function resetPositions(state: GameState) {
@@ -138,23 +173,61 @@ function isAttackState(state: string): boolean {
 }
 
 export function updateGame(state: GameState, input: InputState, dt: number): GameState {
+  // ===== Bow-in ceremony =====
+  if (state.gameStatus === 'bow-in') {
+    if (state.judgeTimer > 0) state.judgeTimer--;
+    if (state.player.stateTimer > 0) state.player.stateTimer--;
+    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
+    if (state.ceremonyTimer > 0) state.ceremonyTimer--;
+
+    // After the bow ends, fighters return to idle and judge calls HAJIME
+    if (state.ceremonyTimer === HAJIME_HOLD) {
+      state.player.state = 'idle';
+      state.opponent.state = 'idle';
+      state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
+      state.judgeMessage = 'HAJIME!';
+      state.judgeTimer = HAJIME_HOLD;
+    }
+    if (state.ceremonyTimer <= 0) {
+      state.gameStatus = 'fighting';
+      state.judge = { state: 'idle', side: null, timer: 0 };
+      state.judgeMessage = '';
+      state.judgeTimer = 0;
+    }
+    return state;
+  }
+
+  // ===== Bow-out ceremony (end of match) =====
+  if (state.gameStatus === 'bow-out') {
+    if (state.judgeTimer > 0) state.judgeTimer--;
+    if (state.player.stateTimer > 0) state.player.stateTimer--;
+    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
+    if (state.ceremonyTimer > 0) state.ceremonyTimer--;
+    if (state.ceremonyTimer <= 0) {
+      state.gameStatus = 'game-over';
+    }
+    return state;
+  }
+
   if (state.gameStatus !== 'fighting' && state.gameStatus !== 'point-scored') return state;
 
-  // Judge message timer
+  // Judge timers
+  if (state.judge.timer > 0) state.judge.timer--;
   if (state.judgeTimer > 0) {
     state.judgeTimer -= 1;
     if (state.judgeTimer <= 0 && state.gameStatus === 'point-scored') {
+      // Match win check → bow-out ceremony
       if (state.player.score >= MAX_SCORE || state.opponent.score >= MAX_SCORE) {
-        state.gameStatus = 'game-over';
         state.winner = state.player.score >= MAX_SCORE ? 'player' : 'opponent';
-        const w = state.winner === 'player' ? state.player : state.opponent;
-        w.state = 'victory';
+        startBowOut(state);
         return state;
       }
+      // Otherwise: reset and judge calls HAJIME again to resume
       resetPositions(state);
       state.gameStatus = 'fighting';
+      state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
       state.judgeMessage = 'HAJIME!';
-      state.judgeTimer = 40;
+      state.judgeTimer = HAJIME_HOLD;
     }
     if (state.gameStatus === 'point-scored') return state;
   }
@@ -163,10 +236,10 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
   state.timeRemaining -= dt / 60;
   if (state.timeRemaining <= 0) {
     state.timeRemaining = 0;
-    state.gameStatus = 'game-over';
     if (state.player.score > state.opponent.score) state.winner = 'player';
     else if (state.opponent.score > state.player.score) state.winner = 'opponent';
     else state.winner = 'draw';
+    startBowOut(state);
     return state;
   }
 
@@ -425,7 +498,12 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
   const scoreNames = ['', 'IPPON!', 'NIHON!', 'SANBON!', 'YONHON!'];
   state.judgeMessage = `YAME! — ${scoreNames[attacker.score] || 'PONTO!'}`;
-  state.judgeTimer = 90;
+  state.judgeTimer = POINT_HOLD;
+  state.judge = {
+    state: 'point',
+    side: attackerLabel === 'player' ? 'aka' : 'ao',
+    timer: POINT_HOLD,
+  };
 
   // Increase AI difficulty
   if (attackerLabel === 'player') {
