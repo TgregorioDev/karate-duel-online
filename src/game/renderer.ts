@@ -550,11 +550,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 // ============ SPEED LINES ============
 function drawSpeedLines(ctx: CanvasRenderingContext2D, fState: string) {
   ctx.save();
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = 0.22;
   const isKick = fState === 'kick' || fState === 'mae-geri';
-  const lineCount = 6;
-  ctx.strokeStyle = isKick ? '#ff6644' : '#ffcc44';
-  ctx.lineWidth = 2;
+  const lineCount = 5;
+  ctx.strokeStyle = isKick ? '#ff8866' : '#ffd055';
+  ctx.lineWidth = 1.5;
   
   for (let i = 0; i < lineCount; i++) {
     const startX = -30 - Math.random() * 20;
