@@ -33,8 +33,9 @@ function startLunge(fighter: Fighter, target: Fighter, attack: string) {
 
 export function createInitialState(): GameState {
   return {
-    player: createFighter(280, 'right', '#1a3a6a', '#cc2222', '#111'),
-    opponent: createFighter(680, 'left', '#6a1a1a', '#2255cc', '#111'),
+    // WKF style: AKA wears RED belt+gloves, AO wears BLUE belt+gloves.
+    player: createFighter(280, 'right', '#ffffff', '#d4202a', '#d4202a'),
+    opponent: createFighter(680, 'left', '#ffffff', '#1f5cd1', '#1f5cd1'),
     timeRemaining: FIGHT_DURATION,
     gameStatus: 'menu',
     pointScoredBy: null,
