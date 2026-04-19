@@ -172,7 +172,17 @@ function isAttackState(state: string): boolean {
   return state === 'punch' || state === 'kick' || state === 'gyaku-zuki' || state === 'mae-geri';
 }
 
+function ensureGameStateShape(state: GameState) {
+  if (!state.judge) {
+    state.judge = { state: 'idle', side: null, timer: 0 };
+  }
+  if (typeof state.ceremonyTimer !== 'number') {
+    state.ceremonyTimer = 0;
+  }
+}
+
 export function updateGame(state: GameState, input: InputState, dt: number): GameState {
+  ensureGameStateShape(state);
   // ===== Bow-in ceremony =====
   if (state.gameStatus === 'bow-in') {
     if (state.judgeTimer > 0) state.judgeTimer--;
