@@ -322,6 +322,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   // WKF mannequin palette — uniform white "doll" with team-colored gear.
   // No skin tones, no ink details. Hands/feet/head use the same off-white as the gi.
   const teamCol = accentColor; // red for AKA, blue for AO
+  CURRENT_FOOT_GUARD = teamCol;
   const skin = '#ffffff';
   const skinShade = MANNEQUIN_SHADE;
   const skinHighlight = '#ffffff';
