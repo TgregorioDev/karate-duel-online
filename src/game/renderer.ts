@@ -25,7 +25,8 @@ export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
 // Drawn at the back of the dojo, on a slight rise, behind & between the fighters.
 // Smaller scale + faded contrast so the eye prioritizes the athletes in the foreground.
 function drawJudge(ctx: CanvasRenderingContext2D, state: GameState) {
-  const j = state.judge;
+  // Defensive: state shape may be stale during hot-reload — fall back to a safe default.
+  const j = state.judge ?? { state: 'idle' as const, side: null, timer: 0 };
   const jx = CANVAS_WIDTH / 2;
   const jy = GROUND_Y - 78;
   const scale = 0.62;
