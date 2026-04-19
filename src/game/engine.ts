@@ -1,5 +1,5 @@
 import {
-  Fighter, GameState, InputState,
+  Fighter, GameState, InputState, JudgeSide,
   CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
   FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE, GYAKU_ZUKI_RANGE, MAE_GERI_RANGE,
   STAMINA_MAX, STAMINA_REGEN_IDLE, STAMINA_REGEN_RETREAT, BLOCK_DRAIN,
@@ -64,6 +64,21 @@ export function startBowIn(state: GameState) {
   state.judge = { state: 'idle', side: null, timer: BOW_DURATION };
   state.judgeMessage = 'REI';
   state.judgeTimer = BOW_DURATION;
+}
+
+export function startBowOut(state: GameState) {
+  state.gameStatus = 'bow-out';
+  state.ceremonyTimer = BOW_DURATION + 60;
+  state.player.state = 'bow';
+  state.opponent.state = 'bow';
+  state.player.stateTimer = BOW_DURATION;
+  state.opponent.stateTimer = BOW_DURATION;
+  let side: JudgeSide = null;
+  if (state.winner === 'player') side = 'aka';
+  else if (state.winner === 'opponent') side = 'ao';
+  state.judge = { state: 'winner', side, timer: WINNER_HOLD };
+  state.judgeMessage = state.winner === 'draw' ? 'HIKIWAKE' : 'SHOBU ARI!';
+  state.judgeTimer = WINNER_HOLD;
 }
 
 export function resetPositions(state: GameState) {
@@ -483,7 +498,12 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 
   const scoreNames = ['', 'IPPON!', 'NIHON!', 'SANBON!', 'YONHON!'];
   state.judgeMessage = `YAME! — ${scoreNames[attacker.score] || 'PONTO!'}`;
-  state.judgeTimer = 90;
+  state.judgeTimer = POINT_HOLD;
+  state.judge = {
+    state: 'point',
+    side: attackerLabel === 'player' ? 'aka' : 'ao',
+    timer: POINT_HOLD,
+  };
 
   // Increase AI difficulty
   if (attackerLabel === 'player') {
