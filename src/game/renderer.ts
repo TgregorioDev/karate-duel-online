@@ -3,8 +3,12 @@ import { Fighter, GameState, CANVAS_WIDTH, CANVAS_HEIGHT, GROUND_Y, STAMINA_MAX,
 // ============ ANIME-STYLE KARATE RENDERER ============
 // Cel-shaded look with bold outlines, expressive anime faces, speed lines, and manga effects
 
-const OUTLINE_W = 2.5;
-const OUTLINE_COL = '#1a1012';
+// WKF scoreboard mannequin style: pure white karategi, soft gray outline,
+// faceless rounded head, colored belt + gloves + foot guards (red=AKA, blue=AO).
+const OUTLINE_W = 2;
+const OUTLINE_COL = '#9aa0a6';
+const MANNEQUIN_SHADE = '#e6e8eb';
+const MANNEQUIN_DEEP = '#cdd1d6';
 
 export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
