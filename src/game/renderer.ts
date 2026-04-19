@@ -508,6 +508,29 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawAnimeArm(ctx, shoulderX + 20, shoulderY + 6, shoulderX + 26, shoulderY - 20, shoulderX + 22, shoulderY - 36, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
+
+  } else if (fState === 'bow') {
+    // Reverência (REI / ritsu-rei): tronco inclinado ~30° para frente,
+    // mãos junto às coxas, olhar baixo. Pernas retas em musubi-dachi.
+    const hipY = -36;
+    // Pernas retas e juntas
+    drawAnimeLeg(ctx, -4, hipY, -6, hipY + 24, -8, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 4, hipY, 6, hipY + 24, 8, 2, giMain, giFold, skin, skinShade, legW);
+
+    // Tronco inclinado para frente: ombros avançam e descem
+    const bowAmount = 22; // quão baixo a reverência desce
+    const shoulderY = hipY - torsoLen + bowAmount;
+    const shoulderX = 14; // tronco projetado para frente
+    drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // Braços retos ao longo das coxas (mão na coxa)
+    const backSX = shoulderX - 18;
+    const frontSX = shoulderX + 18;
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX + 4, shoulderY + 22, backSX + 8, shoulderY + 38, giMain, skin, skinShade, false, gloveCol);
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 4, shoulderY + 22, frontSX + 8, shoulderY + 38, giMain, skin, skinShade, false, gloveCol);
+
+    // Cabeça inclinada para baixo (frente do tronco)
+    drawAnimeHead(ctx, shoulderX + 6, shoulderY + 4, 'idle', skin, skinShade, skinHighlight, accentColor, headR);
   }
 
   ctx.restore();
