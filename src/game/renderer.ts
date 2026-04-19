@@ -10,6 +10,10 @@ const OUTLINE_COL = '#9aa0a6';
 const MANNEQUIN_SHADE = '#e6e8eb';
 const MANNEQUIN_DEEP = '#cdd1d6';
 
+// Team-colored foot/shin guard (set per-fighter at draw start). WKF mannequins
+// always wear colored foot protectors matching the belt — red for AKA, blue for AO.
+let CURRENT_FOOT_GUARD = '#d4202a';
+
 export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   drawAnimeBackground(ctx);
