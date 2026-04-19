@@ -906,278 +906,64 @@ function drawAnimeTorso(
   ctx.stroke();
 }
 
-// ============ SERIOUS INK-STYLE HEAD ============
+// ============ WKF MANNEQUIN HEAD ============
+// Faceless rounded white head — same off-white as the gi.
+// State is conveyed through tiny posture cues (slight tilt on hit / victory),
+// never through facial features. This matches the WKF scoreboard pictogram.
 function drawAnimeHead(
   ctx: CanvasRenderingContext2D,
   shoulderX: number, shoulderY: number,
   fState: string,
-  skin: string, skinShade: string, skinHighlight: string,
-  accentColor: string, headR: number
+  skin: string, skinShade: string, _skinHighlight: string,
+  _accentColor: string, headR: number
 ) {
   const neckX = shoulderX + 1;
   const neckY = shoulderY;
-  const headX = neckX;
-  const headY = neckY - headR - 4;
 
-  // Thick muscular neck
+  // Posture cue: slight forward tilt on hit, slight upward chin on victory
+  let headOffsetX = 0;
+  let headOffsetY = 0;
+  if (fState === 'hit') { headOffsetX = -3; headOffsetY = 2; }
+  else if (fState === 'victory') { headOffsetY = -1; }
+
+  const headX = neckX + headOffsetX;
+  const headY = neckY - headR - 4 + headOffsetY;
+
+  // Short neck — same white tone, smooth trapezoid
   ctx.fillStyle = skin;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(neckX - 7, neckY);
-  ctx.lineTo(neckX - 5, neckY - 8);
-  ctx.lineTo(neckX + 5, neckY - 8);
-  ctx.lineTo(neckX + 7, neckY);
+  ctx.moveTo(neckX - 6, neckY);
+  ctx.lineTo(neckX - 4, neckY - 7);
+  ctx.lineTo(neckX + 4, neckY - 7);
+  ctx.lineTo(neckX + 6, neckY);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Neck shadow/tendon
-  ctx.strokeStyle = skinShade;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(neckX - 2, neckY);
-  ctx.lineTo(neckX - 1, neckY - 7);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(neckX + 3, neckY);
-  ctx.lineTo(neckX + 2, neckY - 7);
-  ctx.stroke();
-
-  // Head — angular jaw, not round
+  // Head — perfect round mannequin ball
   ctx.fillStyle = skin;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  // Start from top of head, go clockwise
-  ctx.moveTo(headX, headY - headR - 1); // top
-  ctx.quadraticCurveTo(headX + headR + 3, headY - headR, headX + headR + 2, headY); // right temple
-  ctx.lineTo(headX + headR - 1, headY + 6); // right cheek
-  ctx.lineTo(headX + 4, headY + headR + 3); // right jaw
-  ctx.lineTo(headX, headY + headR + 5); // chin point
-  ctx.lineTo(headX - 4, headY + headR + 3); // left jaw
-  ctx.lineTo(headX - headR + 1, headY + 6); // left cheek
-  ctx.quadraticCurveTo(headX - headR - 3, headY - headR, headX, headY - headR - 1); // left temple to top
-  ctx.closePath();
+  ctx.arc(headX, headY, headR + 1, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Jaw shadow (sharp angular)
+  // Single soft side-shadow crescent — gives 3D form without any features
   ctx.fillStyle = skinShade;
+  ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  ctx.moveTo(headX - headR + 1, headY + 4);
-  ctx.lineTo(headX - 4, headY + headR + 2);
-  ctx.lineTo(headX, headY + headR + 4);
-  ctx.lineTo(headX + 4, headY + headR + 2);
-  ctx.lineTo(headX + headR - 1, headY + 4);
-  ctx.lineTo(headX + headR - 3, headY + 8);
-  ctx.lineTo(headX, headY + headR + 1);
-  ctx.lineTo(headX - headR + 3, headY + 8);
-  ctx.closePath();
+  ctx.arc(headX - 2, headY + 1, headR + 1, Math.PI * 0.6, Math.PI * 1.4);
   ctx.fill();
+  ctx.globalAlpha = 1;
 
-  // Short cropped hair (tight to skull, like the reference)
-  ctx.fillStyle = '#111118';
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = OUTLINE_W;
+  // Subtle highlight dot (top-right) for the rounded plastic-doll feel
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
   ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, headY + 1);
-  ctx.quadraticCurveTo(headX - headR - 3, headY - headR, headX, headY - headR - 3);
-  ctx.quadraticCurveTo(headX + headR + 3, headY - headR, headX + headR + 1, headY + 1);
-  ctx.lineTo(headX + headR - 1, headY - 1);
-  ctx.quadraticCurveTo(headX + headR, headY - headR + 3, headX, headY - headR);
-  ctx.quadraticCurveTo(headX - headR, headY - headR + 3, headX - headR + 1, headY - 1);
-  ctx.closePath();
+  ctx.ellipse(headX + headR * 0.35, headY - headR * 0.4, headR * 0.35, headR * 0.22, -0.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
-
-  // Hair texture lines
-  ctx.strokeStyle = '#2a2a35';
-  ctx.lineWidth = 0.8;
-  for (let i = -2; i <= 2; i++) {
-    ctx.beginPath();
-    ctx.moveTo(headX + i * 4, headY - headR - 2);
-    ctx.lineTo(headX + i * 3, headY - headR + 6);
-    ctx.stroke();
-  }
-
-  // ---- STERN NARROW EYES ----
-  const eyeY = headY + 1;
-  const leftEyeX = headX - 5;
-  const rightEyeX = headX + 6;
-
-  if (fState === 'hit') {
-    // Shut tight — pain
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(leftEyeX - 4, eyeY);
-    ctx.lineTo(leftEyeX + 4, eyeY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rightEyeX - 4, eyeY);
-    ctx.lineTo(rightEyeX + 4, eyeY);
-    ctx.stroke();
-    // Pain wrinkle
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(leftEyeX - 3, eyeY - 3);
-    ctx.lineTo(leftEyeX + 3, eyeY - 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rightEyeX - 3, eyeY - 2);
-    ctx.lineTo(rightEyeX + 3, eyeY - 3);
-    ctx.stroke();
-  } else if (fState === 'victory') {
-    // Closed, composed
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(leftEyeX, eyeY, 3, 0.3, Math.PI - 0.3);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(rightEyeX, eyeY, 3, 0.3, Math.PI - 0.3);
-    ctx.stroke();
-  } else {
-    const isAttack = fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri';
-    const isBlock = fState === 'block';
-
-    // Narrow, serious eyes — slit-like
-    [leftEyeX, rightEyeX].forEach((ex, idx) => {
-      // Eye slit shape (narrow and angular)
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = OUTLINE_COL;
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(ex - 5, eyeY);
-      ctx.quadraticCurveTo(ex, eyeY - (isAttack ? 2 : 3), ex + 5, eyeY);
-      ctx.quadraticCurveTo(ex, eyeY + 2, ex - 5, eyeY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Dark iris — small and intense
-      const irisCol = accentColor === '#cc2222' ? '#3a1008' : '#0a1a3a';
-      ctx.fillStyle = irisCol;
-      ctx.beginPath();
-      ctx.arc(ex + 1, eyeY, 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Pupil
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(ex + 1, eyeY, 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Tiny highlight
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.beginPath();
-      ctx.arc(ex, eyeY - 0.5, 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // Strong thick brows — angled for intensity
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 3.5;
-    if (isAttack) {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 4);
-      ctx.lineTo(leftEyeX + 5, eyeY - 6);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 6);
-      ctx.lineTo(rightEyeX + 6, eyeY - 4);
-      ctx.stroke();
-    } else if (isBlock) {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 5);
-      ctx.lineTo(leftEyeX + 5, eyeY - 5);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 5);
-      ctx.lineTo(rightEyeX + 6, eyeY - 5);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 5);
-      ctx.lineTo(leftEyeX + 5, eyeY - 6);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 6);
-      ctx.lineTo(rightEyeX + 6, eyeY - 5);
-      ctx.stroke();
-    }
-  }
-
-  // Strong nose — angular ink style
-  ctx.fillStyle = skinShade;
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(headX + 1, eyeY + 2);
-  ctx.lineTo(headX + 3, headY + headR - 2);
-  ctx.lineTo(headX, headY + headR - 1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Mouth
-  if (fState === 'hit') {
-    // Gritting teeth
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(headX - 4, headY + headR + 1);
-    ctx.lineTo(headX + 5, headY + headR + 1);
-    ctx.stroke();
-    // Teeth line
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(headX - 3, headY + headR + 1);
-    ctx.lineTo(headX + 4, headY + headR + 1);
-    ctx.stroke();
-  } else if (fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri') {
-    // Kiai mouth — open yell
-    ctx.fillStyle = '#3a1010';
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.ellipse(headX + 1, headY + headR, 3, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (fState === 'victory') {
-    // Slight confident smirk
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(headX - 2, headY + headR);
-    ctx.quadraticCurveTo(headX + 1, headY + headR + 2, headX + 4, headY + headR - 1);
-    ctx.stroke();
-  } else {
-    // Stern closed mouth
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(headX - 3, headY + headR);
-    ctx.lineTo(headX + 4, headY + headR);
-    ctx.stroke();
-  }
-
-  // Ear
-  ctx.fillStyle = skin;
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.ellipse(headX + headR, headY + 1, 3, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // Inner ear
-  ctx.strokeStyle = skinShade;
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.arc(headX + headR, headY + 1, 2, 0.5, Math.PI * 1.5);
-  ctx.stroke();
 }
 
 // ============ ANIME HIT EFFECT ============
