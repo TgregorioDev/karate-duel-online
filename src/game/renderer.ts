@@ -3,8 +3,16 @@ import { Fighter, GameState, CANVAS_WIDTH, CANVAS_HEIGHT, GROUND_Y, STAMINA_MAX,
 // ============ ANIME-STYLE KARATE RENDERER ============
 // Cel-shaded look with bold outlines, expressive anime faces, speed lines, and manga effects
 
-const OUTLINE_W = 2.5;
-const OUTLINE_COL = '#1a1012';
+// WKF scoreboard mannequin style: pure white karategi, soft gray outline,
+// faceless rounded head, colored belt + gloves + foot guards (red=AKA, blue=AO).
+const OUTLINE_W = 2;
+const OUTLINE_COL = '#9aa0a6';
+const MANNEQUIN_SHADE = '#e6e8eb';
+const MANNEQUIN_DEEP = '#cdd1d6';
+
+// Team-colored foot/shin guard (set per-fighter at draw start). WKF mannequins
+// always wear colored foot protectors matching the belt — red for AKA, blue for AO.
+let CURRENT_FOOT_GUARD = '#d4202a';
 
 export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -311,19 +319,21 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const breathe = Math.sin(t / 400) * 1.2; // subtle breathing
   const bobY = fState === 'idle' ? breathe : 0;
 
-  // Color palette
-  const skin = '#e8b888';
-  const skinShade = '#c4956a';
-  const skinHighlight = '#f5d4b0';
-  // Telegraph tints the gi white briefly so the opponent can read the attack
+  // WKF mannequin palette — uniform white "doll" with team-colored gear.
+  // No skin tones, no ink details. Hands/feet/head use the same off-white as the gi.
+  const teamCol = accentColor; // red for AKA, blue for AO
+  CURRENT_FOOT_GUARD = teamCol;
+  const skin = '#ffffff';
+  const skinShade = MANNEQUIN_SHADE;
+  const skinHighlight = '#ffffff';
   const telegraphing = fighter.telegraphFlash > 0;
-  const giMain = telegraphing ? '#ffffff' : (fState === 'hit' ? '#f0b8b8' : '#f0ece4');
-  const giShade = telegraphing ? '#e8e8e8' : (fState === 'hit' ? '#d49090' : '#d0ccc0');
-  const giFold = telegraphing ? '#c8c8c8' : (fState === 'hit' ? '#b87070' : '#b8b4a8');
-  const beltCol = '#1a1a1a';
-  const gloveCol = accentColor;
+  const giMain = telegraphing ? '#fff7d8' : (fState === 'hit' ? '#ffd8d8' : '#ffffff');
+  const giShade = telegraphing ? '#f0e6c2' : (fState === 'hit' ? '#f0bcbc' : MANNEQUIN_SHADE);
+  const giFold = MANNEQUIN_DEEP;
+  const beltCol = teamCol;
+  const gloveCol = teamCol;
 
-  // Speed lines when attacking
+  // Subtle speed lines on attack (kept faint so the mannequin reads clean)
   if (fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri') {
     drawSpeedLines(ctx, fState);
   }
@@ -540,11 +550,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 // ============ SPEED LINES ============
 function drawSpeedLines(ctx: CanvasRenderingContext2D, fState: string) {
   ctx.save();
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = 0.22;
   const isKick = fState === 'kick' || fState === 'mae-geri';
-  const lineCount = 6;
-  ctx.strokeStyle = isKick ? '#ff6644' : '#ffcc44';
-  ctx.lineWidth = 2;
+  const lineCount = 5;
+  ctx.strokeStyle = isKick ? '#ff8866' : '#ffd055';
+  ctx.lineWidth = 1.5;
   
   for (let i = 0; i < lineCount; i++) {
     const startX = -30 - Math.random() * 20;
@@ -631,13 +641,13 @@ function drawAnimeLeg(
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Foot
-  ctx.fillStyle = skinCol;
+  // Foot guard — team color (WKF foot protector)
+  ctx.fillStyle = CURRENT_FOOT_GUARD;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   const footDir = footX > kneeX ? 1 : (footX < kneeX ? -1 : 1);
   ctx.beginPath();
-  ctx.ellipse(footX + footDir * 5, footY, 9, 4.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(footX + footDir * 5, footY, 10, 5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 }
@@ -700,27 +710,22 @@ function drawAnimeLegKick(
   ctx.arc(kneeX, kneeY, limbW * 0.32, 0, Math.PI * 2);
   ctx.fill();
 
-  // Foot pointed
-  ctx.fillStyle = skinCol;
+  // Foot guard (team-colored, pointed forward like WKF foot protector)
+  ctx.fillStyle = CURRENT_FOOT_GUARD;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.save();
   ctx.translate(footX, footY);
   ctx.rotate(shinAngle);
   ctx.beginPath();
-  ctx.moveTo(-5, -5);
-  ctx.lineTo(16, -3);
-  ctx.lineTo(20, 0);
-  ctx.lineTo(16, 3);
-  ctx.lineTo(-5, 5);
+  ctx.moveTo(-6, -6);
+  ctx.lineTo(17, -4);
+  ctx.lineTo(22, 0);
+  ctx.lineTo(17, 4);
+  ctx.lineTo(-6, 6);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  // Ball of foot
-  ctx.fillStyle = skinDarkCol;
-  ctx.beginPath();
-  ctx.ellipse(17, 0, 4.5, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
   ctx.restore();
 }
 
@@ -820,418 +825,145 @@ function drawAnimeArm(
   }
 }
 
-// ============ ANIME TORSO ============
+// ============ WKF MANNEQUIN TORSO ============
+// Smooth white karategi with a single bold colored belt (team color).
+// No muscle definition, no cel-shading, no lapel V — just clean rounded form.
 function drawAnimeTorso(
   ctx: CanvasRenderingContext2D,
   hipX: number, hipY: number,
   shoulderX: number, shoulderY: number,
-  giMain: string, giShade: string, giFold: string, beltCol: string
+  giMain: string, giShade: string, _giFold: string, beltCol: string
 ) {
-  const shoulderW = 42;
-  const waistW = 28;
+  const shoulderW = 46;
+  const waistW = 30;
 
-  // Shadow layer
-  ctx.fillStyle = giShade;
+  // Main jacket — soft rounded silhouette
+  ctx.fillStyle = giMain;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2 - 1, shoulderY);
-  ctx.lineTo(hipX - waistW / 2 - 1, hipY);
-  ctx.lineTo(hipX + waistW / 2 + 1, hipY);
-  ctx.lineTo(shoulderX + shoulderW / 2 + 1, shoulderY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Main gi
-  ctx.fillStyle = giMain;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 1);
-  ctx.lineTo(hipX - waistW / 2, hipY);
+  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 2);
+  ctx.quadraticCurveTo(shoulderX - shoulderW / 2 - 2, (shoulderY + hipY) / 2, hipX - waistW / 2, hipY);
   ctx.lineTo(hipX + waistW / 2, hipY);
-  ctx.lineTo(shoulderX + shoulderW / 2, shoulderY + 1);
+  ctx.quadraticCurveTo(shoulderX + shoulderW / 2 + 2, (shoulderY + hipY) / 2, shoulderX + shoulderW / 2, shoulderY + 2);
+  ctx.quadraticCurveTo(shoulderX, shoulderY - 4, shoulderX - shoulderW / 2, shoulderY + 2);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Cel-shade: sharp diagonal shadow on torso
-  ctx.fillStyle = giFold;
-  ctx.globalAlpha = 0.3;
+  // Soft side shadow (single subtle gradient hint)
+  ctx.fillStyle = giShade;
+  ctx.globalAlpha = 0.45;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 1);
-  ctx.lineTo(shoulderX, shoulderY + 20);
-  ctx.lineTo(hipX - waistW / 2, hipY);
+  ctx.moveTo(shoulderX - shoulderW / 2 + 2, shoulderY + 4);
+  ctx.quadraticCurveTo(shoulderX - shoulderW / 2, (shoulderY + hipY) / 2, hipX - waistW / 2 + 2, hipY - 1);
+  ctx.lineTo(hipX - waistW / 2 + 10, hipY - 1);
+  ctx.lineTo(shoulderX - shoulderW / 2 + 12, shoulderY + 4);
   ctx.closePath();
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Pectoral muscle lines visible through gi
-  ctx.strokeStyle = giFold;
-  ctx.lineWidth = 1.2;
-  ctx.globalAlpha = 0.4;
-  // Left pec
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2 + 4, shoulderY + 6);
-  ctx.quadraticCurveTo(shoulderX - 4, shoulderY + 14, shoulderX - 2, shoulderY + 18);
-  ctx.stroke();
-  // Right pec
-  ctx.beginPath();
-  ctx.moveTo(shoulderX + shoulderW / 2 - 4, shoulderY + 6);
-  ctx.quadraticCurveTo(shoulderX + 4, shoulderY + 14, shoulderX + 2, shoulderY + 18);
-  ctx.stroke();
-  // Center chest line
-  ctx.beginPath();
-  ctx.moveTo(shoulderX, shoulderY + 4);
-  ctx.lineTo(shoulderX, shoulderY + 22);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Shoulder cap / deltoid bumps
+  // Rounded shoulder caps (mannequin balls)
   ctx.fillStyle = giMain;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
-  // Left deltoid
   ctx.beginPath();
-  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  // Right deltoid
   ctx.beginPath();
-  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Lapel V — wider for bigger torso
-  ctx.fillStyle = giShade;
-  const lapelCY = (shoulderY + hipY) / 2 + 8;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - 8, shoulderY + 2);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY);
-  ctx.lineTo(shoulderX + 10, shoulderY + 2);
-  ctx.lineTo(shoulderX + 6, shoulderY + 2);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 6);
-  ctx.lineTo(shoulderX - 4, shoulderY + 2);
-  ctx.closePath();
-  ctx.fill();
-
-  // Lapel line
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - 7, shoulderY + 3);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 2);
-  ctx.lineTo(shoulderX + 9, shoulderY + 3);
-  ctx.stroke();
-
-  // Belt
+  // Belt — solid team color, the strongest visual identifier
   const beltY = hipY - 4;
-  const beltH = 8;
+  const beltH = 10;
   ctx.fillStyle = beltCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.rect(hipX - waistW / 2 - 2, beltY, waistW + 4, beltH);
+  ctx.rect(hipX - waistW / 2 - 3, beltY, waistW + 6, beltH);
   ctx.fill();
   ctx.stroke();
 
   // Belt knot
-  ctx.fillStyle = '#222';
+  ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.ellipse(hipX + 3, beltY + beltH / 2, 5, 3.5, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(hipX + 2, beltY + beltH / 2, 5, 4, 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Belt tails
+  // Belt tails (short, hanging straight)
   ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.moveTo(hipX + 1, beltY + beltH);
-  ctx.lineTo(hipX - 3, beltY + beltH + 16);
-  ctx.lineTo(hipX, beltY + beltH + 16);
+  ctx.moveTo(hipX - 1, beltY + beltH);
+  ctx.lineTo(hipX - 3, beltY + beltH + 14);
+  ctx.lineTo(hipX + 2, beltY + beltH + 14);
   ctx.lineTo(hipX + 4, beltY + beltH);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(hipX + 4, beltY + beltH);
-  ctx.lineTo(hipX + 10, beltY + beltH + 14);
-  ctx.lineTo(hipX + 7, beltY + beltH + 14);
-  ctx.lineTo(hipX + 1, beltY + beltH);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 }
 
-// ============ SERIOUS INK-STYLE HEAD ============
+// ============ WKF MANNEQUIN HEAD ============
+// Faceless rounded white head — same off-white as the gi.
+// State is conveyed through tiny posture cues (slight tilt on hit / victory),
+// never through facial features. This matches the WKF scoreboard pictogram.
 function drawAnimeHead(
   ctx: CanvasRenderingContext2D,
   shoulderX: number, shoulderY: number,
   fState: string,
-  skin: string, skinShade: string, skinHighlight: string,
-  accentColor: string, headR: number
+  skin: string, skinShade: string, _skinHighlight: string,
+  _accentColor: string, headR: number
 ) {
   const neckX = shoulderX + 1;
   const neckY = shoulderY;
-  const headX = neckX;
-  const headY = neckY - headR - 4;
 
-  // Thick muscular neck
+  // Posture cue: slight forward tilt on hit, slight upward chin on victory
+  let headOffsetX = 0;
+  let headOffsetY = 0;
+  if (fState === 'hit') { headOffsetX = -3; headOffsetY = 2; }
+  else if (fState === 'victory') { headOffsetY = -1; }
+
+  const headX = neckX + headOffsetX;
+  const headY = neckY - headR - 4 + headOffsetY;
+
+  // Short neck — same white tone, smooth trapezoid
   ctx.fillStyle = skin;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(neckX - 7, neckY);
-  ctx.lineTo(neckX - 5, neckY - 8);
-  ctx.lineTo(neckX + 5, neckY - 8);
-  ctx.lineTo(neckX + 7, neckY);
+  ctx.moveTo(neckX - 6, neckY);
+  ctx.lineTo(neckX - 4, neckY - 7);
+  ctx.lineTo(neckX + 4, neckY - 7);
+  ctx.lineTo(neckX + 6, neckY);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Neck shadow/tendon
-  ctx.strokeStyle = skinShade;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(neckX - 2, neckY);
-  ctx.lineTo(neckX - 1, neckY - 7);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(neckX + 3, neckY);
-  ctx.lineTo(neckX + 2, neckY - 7);
-  ctx.stroke();
-
-  // Head — angular jaw, not round
+  // Head — perfect round mannequin ball
   ctx.fillStyle = skin;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  // Start from top of head, go clockwise
-  ctx.moveTo(headX, headY - headR - 1); // top
-  ctx.quadraticCurveTo(headX + headR + 3, headY - headR, headX + headR + 2, headY); // right temple
-  ctx.lineTo(headX + headR - 1, headY + 6); // right cheek
-  ctx.lineTo(headX + 4, headY + headR + 3); // right jaw
-  ctx.lineTo(headX, headY + headR + 5); // chin point
-  ctx.lineTo(headX - 4, headY + headR + 3); // left jaw
-  ctx.lineTo(headX - headR + 1, headY + 6); // left cheek
-  ctx.quadraticCurveTo(headX - headR - 3, headY - headR, headX, headY - headR - 1); // left temple to top
-  ctx.closePath();
+  ctx.arc(headX, headY, headR + 1, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Jaw shadow (sharp angular)
+  // Single soft side-shadow crescent — gives 3D form without any features
   ctx.fillStyle = skinShade;
+  ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  ctx.moveTo(headX - headR + 1, headY + 4);
-  ctx.lineTo(headX - 4, headY + headR + 2);
-  ctx.lineTo(headX, headY + headR + 4);
-  ctx.lineTo(headX + 4, headY + headR + 2);
-  ctx.lineTo(headX + headR - 1, headY + 4);
-  ctx.lineTo(headX + headR - 3, headY + 8);
-  ctx.lineTo(headX, headY + headR + 1);
-  ctx.lineTo(headX - headR + 3, headY + 8);
-  ctx.closePath();
+  ctx.arc(headX - 2, headY + 1, headR + 1, Math.PI * 0.6, Math.PI * 1.4);
   ctx.fill();
+  ctx.globalAlpha = 1;
 
-  // Short cropped hair (tight to skull, like the reference)
-  ctx.fillStyle = '#111118';
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = OUTLINE_W;
+  // Subtle highlight dot (top-right) for the rounded plastic-doll feel
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
   ctx.beginPath();
-  ctx.moveTo(headX - headR - 1, headY + 1);
-  ctx.quadraticCurveTo(headX - headR - 3, headY - headR, headX, headY - headR - 3);
-  ctx.quadraticCurveTo(headX + headR + 3, headY - headR, headX + headR + 1, headY + 1);
-  ctx.lineTo(headX + headR - 1, headY - 1);
-  ctx.quadraticCurveTo(headX + headR, headY - headR + 3, headX, headY - headR);
-  ctx.quadraticCurveTo(headX - headR, headY - headR + 3, headX - headR + 1, headY - 1);
-  ctx.closePath();
+  ctx.ellipse(headX + headR * 0.35, headY - headR * 0.4, headR * 0.35, headR * 0.22, -0.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
-
-  // Hair texture lines
-  ctx.strokeStyle = '#2a2a35';
-  ctx.lineWidth = 0.8;
-  for (let i = -2; i <= 2; i++) {
-    ctx.beginPath();
-    ctx.moveTo(headX + i * 4, headY - headR - 2);
-    ctx.lineTo(headX + i * 3, headY - headR + 6);
-    ctx.stroke();
-  }
-
-  // ---- STERN NARROW EYES ----
-  const eyeY = headY + 1;
-  const leftEyeX = headX - 5;
-  const rightEyeX = headX + 6;
-
-  if (fState === 'hit') {
-    // Shut tight — pain
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(leftEyeX - 4, eyeY);
-    ctx.lineTo(leftEyeX + 4, eyeY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rightEyeX - 4, eyeY);
-    ctx.lineTo(rightEyeX + 4, eyeY);
-    ctx.stroke();
-    // Pain wrinkle
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(leftEyeX - 3, eyeY - 3);
-    ctx.lineTo(leftEyeX + 3, eyeY - 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rightEyeX - 3, eyeY - 2);
-    ctx.lineTo(rightEyeX + 3, eyeY - 3);
-    ctx.stroke();
-  } else if (fState === 'victory') {
-    // Closed, composed
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(leftEyeX, eyeY, 3, 0.3, Math.PI - 0.3);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(rightEyeX, eyeY, 3, 0.3, Math.PI - 0.3);
-    ctx.stroke();
-  } else {
-    const isAttack = fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri';
-    const isBlock = fState === 'block';
-
-    // Narrow, serious eyes — slit-like
-    [leftEyeX, rightEyeX].forEach((ex, idx) => {
-      // Eye slit shape (narrow and angular)
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = OUTLINE_COL;
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(ex - 5, eyeY);
-      ctx.quadraticCurveTo(ex, eyeY - (isAttack ? 2 : 3), ex + 5, eyeY);
-      ctx.quadraticCurveTo(ex, eyeY + 2, ex - 5, eyeY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Dark iris — small and intense
-      const irisCol = accentColor === '#cc2222' ? '#3a1008' : '#0a1a3a';
-      ctx.fillStyle = irisCol;
-      ctx.beginPath();
-      ctx.arc(ex + 1, eyeY, 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Pupil
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(ex + 1, eyeY, 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Tiny highlight
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.beginPath();
-      ctx.arc(ex, eyeY - 0.5, 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // Strong thick brows — angled for intensity
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 3.5;
-    if (isAttack) {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 4);
-      ctx.lineTo(leftEyeX + 5, eyeY - 6);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 6);
-      ctx.lineTo(rightEyeX + 6, eyeY - 4);
-      ctx.stroke();
-    } else if (isBlock) {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 5);
-      ctx.lineTo(leftEyeX + 5, eyeY - 5);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 5);
-      ctx.lineTo(rightEyeX + 6, eyeY - 5);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(leftEyeX - 5, eyeY - 5);
-      ctx.lineTo(leftEyeX + 5, eyeY - 6);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rightEyeX - 4, eyeY - 6);
-      ctx.lineTo(rightEyeX + 6, eyeY - 5);
-      ctx.stroke();
-    }
-  }
-
-  // Strong nose — angular ink style
-  ctx.fillStyle = skinShade;
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(headX + 1, eyeY + 2);
-  ctx.lineTo(headX + 3, headY + headR - 2);
-  ctx.lineTo(headX, headY + headR - 1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Mouth
-  if (fState === 'hit') {
-    // Gritting teeth
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(headX - 4, headY + headR + 1);
-    ctx.lineTo(headX + 5, headY + headR + 1);
-    ctx.stroke();
-    // Teeth line
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(headX - 3, headY + headR + 1);
-    ctx.lineTo(headX + 4, headY + headR + 1);
-    ctx.stroke();
-  } else if (fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri') {
-    // Kiai mouth — open yell
-    ctx.fillStyle = '#3a1010';
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.ellipse(headX + 1, headY + headR, 3, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (fState === 'victory') {
-    // Slight confident smirk
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(headX - 2, headY + headR);
-    ctx.quadraticCurveTo(headX + 1, headY + headR + 2, headX + 4, headY + headR - 1);
-    ctx.stroke();
-  } else {
-    // Stern closed mouth
-    ctx.strokeStyle = OUTLINE_COL;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(headX - 3, headY + headR);
-    ctx.lineTo(headX + 4, headY + headR);
-    ctx.stroke();
-  }
-
-  // Ear
-  ctx.fillStyle = skin;
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.ellipse(headX + headR, headY + 1, 3, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // Inner ear
-  ctx.strokeStyle = skinShade;
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.arc(headX + headR, headY + 1, 2, 0.5, Math.PI * 1.5);
-  ctx.stroke();
 }
 
 // ============ ANIME HIT EFFECT ============
