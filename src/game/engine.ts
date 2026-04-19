@@ -43,7 +43,27 @@ export function createInitialState(): GameState {
     judgeMessage: '',
     judgeTimer: 0,
     hitEffect: null,
+    judge: { state: 'idle', side: null, timer: 0 },
+    ceremonyTimer: 0,
   };
+}
+
+// ===== Ceremony helpers =====
+const BOW_DURATION = 110;          // frames lutadores ficam reverenciando
+const HAJIME_HOLD = 50;            // frames com juiz no gesto de HAJIME antes da luta
+const POINT_HOLD = 90;             // frames com juiz apontando para o ponto
+const WINNER_HOLD = 180;           // frames de cerimônia final apontando o vencedor
+
+export function startBowIn(state: GameState) {
+  state.gameStatus = 'bow-in';
+  state.ceremonyTimer = BOW_DURATION + HAJIME_HOLD;
+  state.player.state = 'bow';
+  state.opponent.state = 'bow';
+  state.player.stateTimer = BOW_DURATION;
+  state.opponent.stateTimer = BOW_DURATION;
+  state.judge = { state: 'idle', side: null, timer: BOW_DURATION };
+  state.judgeMessage = 'REI';
+  state.judgeTimer = BOW_DURATION;
 }
 
 export function resetPositions(state: GameState) {
