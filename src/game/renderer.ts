@@ -710,28 +710,22 @@ function drawAnimeLegKick(
   ctx.arc(kneeX, kneeY, limbW * 0.32, 0, Math.PI * 2);
   ctx.fill();
 
-  // Foot pointed
-  ctx.fillStyle = skinCol;
+  // Foot guard (team-colored, pointed forward like WKF foot protector)
+  ctx.fillStyle = CURRENT_FOOT_GUARD;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.save();
   ctx.translate(footX, footY);
   ctx.rotate(shinAngle);
   ctx.beginPath();
-  ctx.moveTo(-5, -5);
-  ctx.lineTo(16, -3);
-  ctx.lineTo(20, 0);
-  ctx.lineTo(16, 3);
-  ctx.lineTo(-5, 5);
+  ctx.moveTo(-6, -6);
+  ctx.lineTo(17, -4);
+  ctx.lineTo(22, 0);
+  ctx.lineTo(17, 4);
+  ctx.lineTo(-6, 6);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  // Ball of foot
-  ctx.fillStyle = skinDarkCol;
-  ctx.beginPath();
-  ctx.ellipse(17, 0, 4.5, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
 }
 
 // ============ ARM (with bicep/forearm muscle curves) ============
