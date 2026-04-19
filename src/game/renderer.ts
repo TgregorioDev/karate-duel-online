@@ -825,141 +825,82 @@ function drawAnimeArm(
   }
 }
 
-// ============ ANIME TORSO ============
+// ============ WKF MANNEQUIN TORSO ============
+// Smooth white karategi with a single bold colored belt (team color).
+// No muscle definition, no cel-shading, no lapel V — just clean rounded form.
 function drawAnimeTorso(
   ctx: CanvasRenderingContext2D,
   hipX: number, hipY: number,
   shoulderX: number, shoulderY: number,
-  giMain: string, giShade: string, giFold: string, beltCol: string
+  giMain: string, giShade: string, _giFold: string, beltCol: string
 ) {
-  const shoulderW = 42;
-  const waistW = 28;
+  const shoulderW = 46;
+  const waistW = 30;
 
-  // Shadow layer
-  ctx.fillStyle = giShade;
+  // Main jacket — soft rounded silhouette
+  ctx.fillStyle = giMain;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2 - 1, shoulderY);
-  ctx.lineTo(hipX - waistW / 2 - 1, hipY);
-  ctx.lineTo(hipX + waistW / 2 + 1, hipY);
-  ctx.lineTo(shoulderX + shoulderW / 2 + 1, shoulderY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Main gi
-  ctx.fillStyle = giMain;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 1);
-  ctx.lineTo(hipX - waistW / 2, hipY);
+  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 2);
+  ctx.quadraticCurveTo(shoulderX - shoulderW / 2 - 2, (shoulderY + hipY) / 2, hipX - waistW / 2, hipY);
   ctx.lineTo(hipX + waistW / 2, hipY);
-  ctx.lineTo(shoulderX + shoulderW / 2, shoulderY + 1);
+  ctx.quadraticCurveTo(shoulderX + shoulderW / 2 + 2, (shoulderY + hipY) / 2, shoulderX + shoulderW / 2, shoulderY + 2);
+  ctx.quadraticCurveTo(shoulderX, shoulderY - 4, shoulderX - shoulderW / 2, shoulderY + 2);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Cel-shade: sharp diagonal shadow on torso
-  ctx.fillStyle = giFold;
-  ctx.globalAlpha = 0.3;
+  // Soft side shadow (single subtle gradient hint)
+  ctx.fillStyle = giShade;
+  ctx.globalAlpha = 0.45;
   ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2, shoulderY + 1);
-  ctx.lineTo(shoulderX, shoulderY + 20);
-  ctx.lineTo(hipX - waistW / 2, hipY);
+  ctx.moveTo(shoulderX - shoulderW / 2 + 2, shoulderY + 4);
+  ctx.quadraticCurveTo(shoulderX - shoulderW / 2, (shoulderY + hipY) / 2, hipX - waistW / 2 + 2, hipY - 1);
+  ctx.lineTo(hipX - waistW / 2 + 10, hipY - 1);
+  ctx.lineTo(shoulderX - shoulderW / 2 + 12, shoulderY + 4);
   ctx.closePath();
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Pectoral muscle lines visible through gi
-  ctx.strokeStyle = giFold;
-  ctx.lineWidth = 1.2;
-  ctx.globalAlpha = 0.4;
-  // Left pec
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - shoulderW / 2 + 4, shoulderY + 6);
-  ctx.quadraticCurveTo(shoulderX - 4, shoulderY + 14, shoulderX - 2, shoulderY + 18);
-  ctx.stroke();
-  // Right pec
-  ctx.beginPath();
-  ctx.moveTo(shoulderX + shoulderW / 2 - 4, shoulderY + 6);
-  ctx.quadraticCurveTo(shoulderX + 4, shoulderY + 14, shoulderX + 2, shoulderY + 18);
-  ctx.stroke();
-  // Center chest line
-  ctx.beginPath();
-  ctx.moveTo(shoulderX, shoulderY + 4);
-  ctx.lineTo(shoulderX, shoulderY + 22);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Shoulder cap / deltoid bumps
+  // Rounded shoulder caps (mannequin balls)
   ctx.fillStyle = giMain;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
-  // Left deltoid
   ctx.beginPath();
-  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  // Right deltoid
   ctx.beginPath();
-  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 3, 7, Math.PI, Math.PI * 2);
+  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Lapel V — wider for bigger torso
-  ctx.fillStyle = giShade;
-  const lapelCY = (shoulderY + hipY) / 2 + 8;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - 8, shoulderY + 2);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY);
-  ctx.lineTo(shoulderX + 10, shoulderY + 2);
-  ctx.lineTo(shoulderX + 6, shoulderY + 2);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 6);
-  ctx.lineTo(shoulderX - 4, shoulderY + 2);
-  ctx.closePath();
-  ctx.fill();
-
-  // Lapel line
-  ctx.strokeStyle = OUTLINE_COL;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(shoulderX - 7, shoulderY + 3);
-  ctx.lineTo((shoulderX + hipX) / 2, lapelCY - 2);
-  ctx.lineTo(shoulderX + 9, shoulderY + 3);
-  ctx.stroke();
-
-  // Belt
+  // Belt — solid team color, the strongest visual identifier
   const beltY = hipY - 4;
-  const beltH = 8;
+  const beltH = 10;
   ctx.fillStyle = beltCol;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.rect(hipX - waistW / 2 - 2, beltY, waistW + 4, beltH);
+  ctx.rect(hipX - waistW / 2 - 3, beltY, waistW + 6, beltH);
   ctx.fill();
   ctx.stroke();
 
   // Belt knot
-  ctx.fillStyle = '#222';
+  ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.ellipse(hipX + 3, beltY + beltH / 2, 5, 3.5, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(hipX + 2, beltY + beltH / 2, 5, 4, 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Belt tails
+  // Belt tails (short, hanging straight)
   ctx.fillStyle = beltCol;
   ctx.beginPath();
-  ctx.moveTo(hipX + 1, beltY + beltH);
-  ctx.lineTo(hipX - 3, beltY + beltH + 16);
-  ctx.lineTo(hipX, beltY + beltH + 16);
+  ctx.moveTo(hipX - 1, beltY + beltH);
+  ctx.lineTo(hipX - 3, beltY + beltH + 14);
+  ctx.lineTo(hipX + 2, beltY + beltH + 14);
   ctx.lineTo(hipX + 4, beltY + beltH);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(hipX + 4, beltY + beltH);
-  ctx.lineTo(hipX + 10, beltY + beltH + 14);
-  ctx.lineTo(hipX + 7, beltY + beltH + 14);
-  ctx.lineTo(hipX + 1, beltY + beltH);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
