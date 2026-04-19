@@ -641,13 +641,13 @@ function drawAnimeLeg(
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Foot
-  ctx.fillStyle = skinCol;
+  // Foot guard — team color (WKF foot protector)
+  ctx.fillStyle = CURRENT_FOOT_GUARD;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   const footDir = footX > kneeX ? 1 : (footX < kneeX ? -1 : 1);
   ctx.beginPath();
-  ctx.ellipse(footX + footDir * 5, footY, 9, 4.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(footX + footDir * 5, footY, 10, 5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 }
