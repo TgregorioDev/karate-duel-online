@@ -36,19 +36,38 @@ export type FighterState =
   | 'mae-geri'
   | 'block'
   | 'hit'
-  | 'victory';
+  | 'victory'
+  | 'bow';
+
+// Judge state — referee at the back of the dojo.
+// 'idle'  : standing at attention, hands at sides
+// 'point' : arm extended toward the scoring fighter ('aka' or 'ao')
+// 'hajime': both arms swept down to start/resume the bout
+// 'yame'  : one arm raised palm-out to stop the action
+// 'winner': arm extended high toward the match winner
+export type JudgeState = 'idle' | 'point' | 'hajime' | 'yame' | 'winner';
+export type JudgeSide = 'aka' | 'ao' | null;
+
+export interface Judge {
+  state: JudgeState;
+  side: JudgeSide;     // which fighter the judge is pointing at
+  timer: number;       // frames remaining in the current pose
+}
 
 export interface GameState {
   player: Fighter;
   opponent: Fighter;
   timeRemaining: number;
-  gameStatus: 'menu' | 'fighting' | 'point-scored' | 'game-over';
+  gameStatus: 'menu' | 'bow-in' | 'fighting' | 'point-scored' | 'bow-out' | 'game-over';
   pointScoredBy: 'player' | 'opponent' | null;
   winner: 'player' | 'opponent' | 'draw' | null;
   aiDifficulty: number;
   judgeMessage: string;
   judgeTimer: number;
   hitEffect: HitEffect | null;
+  judge: Judge;
+  // Phase timer for bow-in / bow-out ceremonies
+  ceremonyTimer: number;
 }
 
 export interface HitEffect {
