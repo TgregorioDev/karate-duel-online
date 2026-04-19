@@ -315,19 +315,20 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const breathe = Math.sin(t / 400) * 1.2; // subtle breathing
   const bobY = fState === 'idle' ? breathe : 0;
 
-  // Color palette
-  const skin = '#e8b888';
-  const skinShade = '#c4956a';
-  const skinHighlight = '#f5d4b0';
-  // Telegraph tints the gi white briefly so the opponent can read the attack
+  // WKF mannequin palette — uniform white "doll" with team-colored gear.
+  // No skin tones, no ink details. Hands/feet/head use the same off-white as the gi.
+  const teamCol = accentColor; // red for AKA, blue for AO
+  const skin = '#ffffff';
+  const skinShade = MANNEQUIN_SHADE;
+  const skinHighlight = '#ffffff';
   const telegraphing = fighter.telegraphFlash > 0;
-  const giMain = telegraphing ? '#ffffff' : (fState === 'hit' ? '#f0b8b8' : '#f0ece4');
-  const giShade = telegraphing ? '#e8e8e8' : (fState === 'hit' ? '#d49090' : '#d0ccc0');
-  const giFold = telegraphing ? '#c8c8c8' : (fState === 'hit' ? '#b87070' : '#b8b4a8');
-  const beltCol = '#1a1a1a';
-  const gloveCol = accentColor;
+  const giMain = telegraphing ? '#fff7d8' : (fState === 'hit' ? '#ffd8d8' : '#ffffff');
+  const giShade = telegraphing ? '#f0e6c2' : (fState === 'hit' ? '#f0bcbc' : MANNEQUIN_SHADE);
+  const giFold = MANNEQUIN_DEEP;
+  const beltCol = teamCol;
+  const gloveCol = teamCol;
 
-  // Speed lines when attacking
+  // Subtle speed lines on attack (kept faint so the mannequin reads clean)
   if (fState === 'punch' || fState === 'kick' || fState === 'gyaku-zuki' || fState === 'mae-geri') {
     drawSpeedLines(ctx, fState);
   }
