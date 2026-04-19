@@ -726,6 +726,7 @@ function drawAnimeLegKick(
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+  ctx.restore();
 }
 
 // ============ ARM (with bicep/forearm muscle curves) ============
