@@ -54,6 +54,7 @@ const BOW_DURATION = 110;          // frames lutadores ficam reverenciando
 const HAJIME_HOLD = 50;            // frames com juiz no gesto de HAJIME antes da luta
 const POINT_HOLD = 90;             // frames com juiz apontando para o ponto
 const WINNER_HOLD = 180;           // frames de cerimônia final apontando o vencedor
+const POINT_BOW_DURATION = 70;     // frames de reverência mútua após cada ponto, antes do HAJIME
 
 export function startBowIn(state: GameState) {
   state.gameStatus = 'bow-in';
