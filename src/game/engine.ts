@@ -69,6 +69,8 @@ export function startBowIn(state: GameState) {
 
 export function startBowOut(state: GameState) {
   state.gameStatus = 'bow-out';
+  // Lutadores retornam aos seus marcos iniciais e se cumprimentam (rei final).
+  resetPositions(state);
   state.ceremonyTimer = BOW_DURATION + 60;
   state.player.state = 'bow';
   state.opponent.state = 'bow';
