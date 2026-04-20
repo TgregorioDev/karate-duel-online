@@ -663,7 +663,7 @@ function drawAnimeLegKick(
   giCol: string, foldCol: string,
   skinCol: string, skinDarkCol: string,
 ) {
-  const limbW = 16;
+  const limbW = 13;
 
   const thighAngle = Math.atan2(kneeY - hipY, kneeX - hipX);
   const perpX = Math.sin(thighAngle);
@@ -741,7 +741,7 @@ function drawAnimeArm(
   isFist: boolean,
   gloveColor?: string
 ) {
-  const armW = 12;
+  const armW = 10;
 
   // Upper arm with bicep bulge
   const uAngle = Math.atan2(elbowY - shoulderY, elbowX - shoulderX);
@@ -775,7 +775,7 @@ function drawAnimeArm(
   ctx.fill();
 
   // Forearm with muscle taper
-  const fArmW = 10;
+  const fArmW = 8;
   const fAngle = Math.atan2(fistY - elbowY, fistX - elbowX);
   const fPx = Math.sin(fAngle);
   const fPy = -Math.cos(fAngle);
@@ -802,7 +802,7 @@ function drawAnimeArm(
 
   // Glove
   if (gloveColor) {
-    const gloveR = isFist ? 9 : 8;
+    const gloveR = isFist ? 7 : 6;
     ctx.fillStyle = gloveColor;
     ctx.strokeStyle = OUTLINE_COL;
     ctx.lineWidth = OUTLINE_W;
@@ -836,8 +836,8 @@ function drawAnimeTorso(
   shoulderX: number, shoulderY: number,
   giMain: string, giShade: string, _giFold: string, beltCol: string
 ) {
-  const shoulderW = 46;
-  const waistW = 30;
+  const shoulderW = 38;
+  const waistW = 24;
 
   // Main jacket — soft rounded silhouette
   ctx.fillStyle = giMain;
@@ -865,16 +865,16 @@ function drawAnimeTorso(
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Rounded shoulder caps (mannequin balls)
+  // Rounded shoulder caps (smaller — slimmer silhouette)
   ctx.fillStyle = giMain;
   ctx.strokeStyle = OUTLINE_COL;
   ctx.lineWidth = OUTLINE_W;
   ctx.beginPath();
-  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
+  ctx.arc(shoulderX - shoulderW / 2, shoulderY + 4, 6, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 4, 8, 0, Math.PI * 2);
+  ctx.arc(shoulderX + shoulderW / 2, shoulderY + 4, 6, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
