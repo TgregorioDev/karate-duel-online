@@ -599,6 +599,11 @@ export function updateAI(state: GameState) {
     opp.stateTimer--;
     if (opp.stateTimer <= 0 && opp.state !== 'block') opp.state = 'idle';
     if (opp.state === 'hit') return;
+    // Animação de parry da IA precisa terminar antes de qualquer outra ação
+    if ((opp.state === 'uchi-uke' || opp.state === 'gedan-barai') && opp.stateTimer > 0) {
+      opp.velocityX = 0;
+      return;
+    }
     // Mid-attack: only allow chaining a queued combo during the cancel window
     if (isAttackState(opp.state)) {
       // telegraph during startup
