@@ -236,14 +236,34 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
         startBowOut(state);
         return state;
       }
-      // Otherwise: reset and judge calls HAJIME again to resume
+      // Caso contrário: lutadores voltam aos marcos iniciais e fazem reverência
+      // mútua antes do juiz chamar HAJIME novamente.
       resetPositions(state);
-      state.gameStatus = 'fighting';
+      state.player.state = 'bow';
+      state.opponent.state = 'bow';
+      state.player.stateTimer = POINT_BOW_DURATION;
+      state.opponent.stateTimer = POINT_BOW_DURATION;
+      state.ceremonyTimer = POINT_BOW_DURATION;
+      state.judge = { state: 'idle', side: null, timer: POINT_BOW_DURATION };
+      state.judgeMessage = 'REI';
+      state.judgeTimer = POINT_BOW_DURATION;
+    }
+    if (state.gameStatus === 'point-scored') return state;
+  }
+
+  // Após a reverência pós-ponto: juiz chama HAJIME e a luta retoma.
+  if (state.gameStatus === 'fighting' && state.ceremonyTimer > 0) {
+    state.ceremonyTimer--;
+    if (state.player.stateTimer > 0) state.player.stateTimer--;
+    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
+    if (state.ceremonyTimer <= 0) {
+      state.player.state = 'idle';
+      state.opponent.state = 'idle';
       state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
       state.judgeMessage = 'HAJIME!';
       state.judgeTimer = HAJIME_HOLD;
     }
-    if (state.gameStatus === 'point-scored') return state;
+    return state;
   }
 
   // Timer
