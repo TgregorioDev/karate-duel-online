@@ -353,34 +353,57 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   const armW = 10;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
+    // Base zenkutsu-dachi (postura de combate karate, semelhante à referência):
+    // - Perna de trás esticada e empurrando o solo, pé bem afastado para trás.
+    // - Perna da frente avançada com joelho flexionado sobre o tornozelo (peso ~60% frente).
+    // - Tronco ligeiramente girado em hanmi.
+    // - Guarda dupla alta: punho da frente na altura do queixo, punho de trás
+    //   junto ao peito, ambos com cotovelos colados às costelas.
     const walkCycle = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(t / 130) * 0.18 : 0;
-    const hipY = -38 + bobY;
-    const torsoLean = walkCycle * 0.05; // subtle torso sway
+    const hipY = -42 + bobY;
+    const torsoLean = walkCycle * 0.05;
 
-    // Wider natural stance — back leg bent, front leg forward
-    const backKneeX = -14 - walkCycle * 10;
-    const backKneeY = hipY + 22;
-    const backFootX = -22 - walkCycle * 6;
-    const frontKneeX = 16 + walkCycle * 10;
-    const frontKneeY = hipY + 20;
-    const frontFootX = 22 + walkCycle * 6;
+    // Perna de trás — esticada, pé puxado bem atrás (longa)
+    const backKneeX = -18 - walkCycle * 8;
+    const backKneeY = hipY + 28;
+    const backFootX = -36 - walkCycle * 6;
+    const backFootY = 2;
 
-    drawAnimeLeg(ctx, 0, hipY, backKneeX, backKneeY, backFootX, 2, giMain, giFold, skin, skinShade, legW);
-    drawAnimeLeg(ctx, 0, hipY, frontKneeX, frontKneeY, frontFootX, 2, giMain, giFold, skin, skinShade, legW);
+    // Perna da frente — joelho dobrado sobre o pé, pé avançado
+    const frontKneeX = 18 + walkCycle * 8;
+    const frontKneeY = hipY + 24;
+    const frontFootX = 26 + walkCycle * 6;
+    const frontFootY = 2;
+
+    drawAnimeLeg(ctx, -3, hipY, backKneeX, backKneeY, backFootX, backFootY, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 3, hipY, frontKneeX, frontKneeY, frontFootX, frontFootY, giMain, giFold, skin, skinShade, legW);
 
     const shoulderY = hipY - torsoLen;
-    const shoulderX = 2 + torsoLean * 8;
+    const shoulderX = 4 + torsoLean * 8; // hanmi: ombros levemente projetados para frente
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Arms in guard — natural kamae
-    const backSX = shoulderX - 20;
-    const frontSX = shoulderX + 20;
-    // Back arm: relaxed at side, fist near hip
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 6, shoulderY + 22, backSX - 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
-    // Front arm: guard up, forearm angled forward
-    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 10, shoulderY + 18, frontSX + 16, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
+    // Guarda dupla alta — punhos à frente do peito/queixo, cotovelos baixos colados ao tronco
+    const backSX = shoulderX - 18;
+    const frontSX = shoulderX + 18;
+    // Braço de trás: cotovelo junto à costela, punho à frente do peito (chudan-no-kamae)
+    drawAnimeArm(
+      ctx,
+      backSX, shoulderY + 6,
+      backSX + 6, shoulderY + 18,
+      backSX + 18, shoulderY + 8,
+      giMain, skin, skinShade, true, gloveCol,
+    );
+    // Braço da frente: cotovelo abaixo do ombro, punho à altura do queixo (jodan-no-kamae)
+    drawAnimeArm(
+      ctx,
+      frontSX, shoulderY + 6,
+      frontSX + 14, shoulderY + 16,
+      frontSX + 26, shoulderY - 4,
+      giMain, skin, skinShade, true, gloveCol,
+    );
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
+
 
   } else if (fState === 'punch') {
     // Zenkutsu-dachi — deep front stance, hips rotated
