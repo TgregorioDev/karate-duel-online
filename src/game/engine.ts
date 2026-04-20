@@ -344,6 +344,13 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.state = 'idle';
     }
     if (fighter.state === 'hit') { buffer.attack = null; buffer.frames = 0; return; }
+    // Animação de parry (uchi-uke / gedan barai) precisa terminar antes
+    // de qualquer outra ação — assim o jogador VÊ a defesa que disparou.
+    if ((fighter.state === 'uchi-uke' || fighter.state === 'gedan-barai') && fighter.stateTimer > 0) {
+      fighter.velocityX = 0;
+      buffer.attack = null; buffer.frames = 0;
+      return;
+    }
     // If mid-attack but NOT in the cancel window, lock out other actions
     // (but KEEP the buffered input alive so the combo fires when cancel window opens)
     if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
@@ -356,8 +363,11 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     }
   }
 
-  // Block — drains stamina while held; first PARRY_WINDOW frames are a parry
-  if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
+  // Block — segurar o botão = guarda firme/alta. Os primeiros PARRY_WINDOW frames
+  // são uma janela de parry: se levar um golpe nesse intervalo, o engine troca
+  // automaticamente o estado para uchi-uke (golpe alto) ou gedan-barai (golpe baixo).
+  if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit'
+      && fighter.state !== 'uchi-uke' && fighter.state !== 'gedan-barai') {
     if (fighter.state !== 'block') fighter.blockTimer = 0;
     fighter.state = 'block';
     fighter.blockTimer++;
