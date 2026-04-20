@@ -520,7 +520,33 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
   } else if (fState === 'block') {
-    // Uchi-uke — weight centered, blocking arm swept outward
+    // GUARDA FIRME — apenas segurando defesa: postura de combate com guarda
+    // dupla um pouco mais ALTA e fechada que o idle. Sem técnica de bloqueio
+    // executada (a defesa real só dispara no parry, escolhida pela altura do golpe).
+    const hipY = -40 + bobY * 0.4;
+    // Base levemente mais fechada que o idle (peso centrado, pronto para reagir)
+    drawAnimeLeg(ctx, -3, hipY, -16, hipY + 26, -30, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 3, hipY, 16, hipY + 22, 24, 2, giMain, giFold, skin, skinShade, legW);
+
+    const shoulderY = hipY - torsoLen; const shoulderX = 2;
+    drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // Guarda dupla ALTA — ambos os punhos próximos do queixo, cotovelos colados
+    // ao tronco, antebraços quase verticais protegendo a linha central.
+    const backSX = shoulderX - 16;
+    const frontSX = shoulderX + 16;
+    // Punho de trás à altura do queixo, cotovelo abaixo do ombro
+    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX + 4, shoulderY + 14, backSX + 12, shoulderY - 6, giMain, skin, skinShade, true, gloveCol);
+    // Punho da frente também alto, ligeiramente avançado
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 8, shoulderY + 12, frontSX + 18, shoulderY - 8, giMain, skin, skinShade, true, gloveCol);
+
+    drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
+
+  } else if (fState === 'uchi-uke') {
+    // UCHI-UKE — defesa de dentro para fora contra ataque ALTO (jodan/chudan alto).
+    // Disparado automaticamente ao acertar parry contra punch / gyaku-zuki.
+    // Antebraço da frente varre para FORA e para CIMA, punho fechado na altura do ombro;
+    // a outra mão vai em HIKITE total até a costela (gera o torque do bloqueio).
     const hipY = -38 + bobY;
     drawAnimeLeg(ctx, 0, hipY, -14, hipY + 22, -26, 2, giMain, giFold, skin, skinShade, legW);
     drawAnimeLeg(ctx, 0, hipY, 16, hipY + 18, 22, 2, giMain, giFold, skin, skinShade, legW);
@@ -528,16 +554,43 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Uchi-uke clássico: mão que defende varre para fora, e a mão oposta vai
-    // simultaneamente em HIKITE até a costela — esse contra-puxar dá potência
-    // ao bloqueio (gera o torque do tronco, igual ao golpe).
+    // HIKITE — mão oposta puxada com força à costela
     const hikiteSX = shoulderX - 20;
     const hikiteElbowX = hikiteSX - 14;
     const hikiteFistX = hikiteSX + 6;
     drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, shoulderY + 18, hikiteFistX, hipY - 4, giMain, skin, skinShade, true, gloveCol);
-    // Front arm — uchi-uke sweep (antebraço varre para fora/cima)
+    // Antebraço da frente em uchi-uke (varre para fora/cima, punho na altura do ombro)
     const frontSX = shoulderX + 20;
     drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 16, shoulderY + 12, frontSX + 24, shoulderY - 4, giMain, skin, skinShade, true, gloveCol);
+
+    drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
+
+  } else if (fState === 'gedan-barai') {
+    // GEDAN BARAI — varredura BAIXA contra ataque baixo/médio (kick / mae-geri).
+    // Disparado automaticamente ao acertar parry contra ataques de perna.
+    // Antebraço da frente desce em arco da altura do ombro oposto até cruzar
+    // a linha do quadril, varrendo o ataque para fora; mão oposta em HIKITE.
+    const hipY = -38 + bobY;
+    drawAnimeLeg(ctx, 0, hipY, -14, hipY + 22, -26, 2, giMain, giFold, skin, skinShade, legW);
+    drawAnimeLeg(ctx, 0, hipY, 16, hipY + 18, 22, 2, giMain, giFold, skin, skinShade, legW);
+
+    const shoulderY = hipY - torsoLen; const shoulderX = 2;
+    drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
+
+    // HIKITE — mão oposta firme na costela
+    const hikiteSX = shoulderX - 20;
+    const hikiteElbowX = hikiteSX - 14;
+    const hikiteFistX = hikiteSX + 6;
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, shoulderY + 18, hikiteFistX, hipY - 4, giMain, skin, skinShade, true, gloveCol);
+    // Braço da frente em gedan barai: cotovelo flexionado próximo ao corpo,
+    // antebraço descendo em diagonal cruzando a frente do quadril.
+    // Cotovelo na altura do peito, punho varrendo até abaixo do quadril, do lado oposto.
+    const frontSX = shoulderX + 18;
+    const elbowX = frontSX + 4;
+    const elbowY = shoulderY + 18;
+    const fistX = frontSX + 22;     // punho varreu para a frente do quadril
+    const fistY = hipY + 12;        // bem abaixo da linha do quadril (gedan)
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, elbowX, elbowY, fistX, fistY, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 

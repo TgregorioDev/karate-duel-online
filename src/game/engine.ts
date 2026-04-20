@@ -344,6 +344,13 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
       fighter.state = 'idle';
     }
     if (fighter.state === 'hit') { buffer.attack = null; buffer.frames = 0; return; }
+    // Animação de parry (uchi-uke / gedan barai) precisa terminar antes
+    // de qualquer outra ação — assim o jogador VÊ a defesa que disparou.
+    if ((fighter.state === 'uchi-uke' || fighter.state === 'gedan-barai') && fighter.stateTimer > 0) {
+      fighter.velocityX = 0;
+      buffer.attack = null; buffer.frames = 0;
+      return;
+    }
     // If mid-attack but NOT in the cancel window, lock out other actions
     // (but KEEP the buffered input alive so the combo fires when cancel window opens)
     if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
@@ -356,8 +363,11 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     }
   }
 
-  // Block — drains stamina while held; first PARRY_WINDOW frames are a parry
-  if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit') {
+  // Block — segurar o botão = guarda firme/alta. Os primeiros PARRY_WINDOW frames
+  // são uma janela de parry: se levar um golpe nesse intervalo, o engine troca
+  // automaticamente o estado para uchi-uke (golpe alto) ou gedan-barai (golpe baixo).
+  if (input.block && !isAttackState(fighter.state) && fighter.state !== 'hit'
+      && fighter.state !== 'uchi-uke' && fighter.state !== 'gedan-barai') {
     if (fighter.state !== 'block') fighter.blockTimer = 0;
     fighter.state = 'block';
     fighter.blockTimer++;
@@ -488,16 +498,24 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
   if (dist > range) return;
 
   // PARRY — first PARRY_WINDOW frames of block = perfect timing → counter window opens
+  // Defesa escolhida pela ALTURA do golpe recebido:
+  //   - punch / gyaku-zuki  → ataques jodan/chudan altos  → UCHI-UKE
+  //   - kick  / mae-geri    → ataques chudan/gedan baixos → GEDAN BARAI
   if (defender.state === 'block' && defender.blockTimer <= PARRY_WINDOW) {
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 18, type: 'punch' };
     defender.parryFlash = 20;
     defender.parryWindow = PARRY_COUNTER_WINDOW;
     defender.stamina = Math.min(STAMINA_MAX, defender.stamina + 15); // reward perfect timing
+    // Mostra a defesa correspondente à altura do golpe por alguns frames
+    const isHighAttack = attacker.state === 'punch' || attacker.state === 'gyaku-zuki';
+    defender.state = isHighAttack ? 'uchi-uke' : 'gedan-barai';
+    defender.stateTimer = 22;
+    defender.blockTimer = 0;
     // Attacker stunned briefly, exposed to counter
     attacker.state = 'hit';
     attacker.stateTimer = 18;
     attacker.hitCooldown = 12;
-    state.judgeMessage = 'PARRY!';
+    state.judgeMessage = isHighAttack ? 'UCHI-UKE!' : 'GEDAN BARAI!';
     state.judgeTimer = 35;
     return;
   }
@@ -581,6 +599,11 @@ export function updateAI(state: GameState) {
     opp.stateTimer--;
     if (opp.stateTimer <= 0 && opp.state !== 'block') opp.state = 'idle';
     if (opp.state === 'hit') return;
+    // Animação de parry da IA precisa terminar antes de qualquer outra ação
+    if ((opp.state === 'uchi-uke' || opp.state === 'gedan-barai') && opp.stateTimer > 0) {
+      opp.velocityX = 0;
+      return;
+    }
     // Mid-attack: only allow chaining a queued combo during the cancel window
     if (isAttackState(opp.state)) {
       // telegraph during startup

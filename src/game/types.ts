@@ -35,9 +35,14 @@ export type FighterState =
   | 'gyaku-zuki'
   | 'mae-geri'
   | 'block'
+  | 'uchi-uke'      // parry contra ataque alto (jodan) — defesa do tronco/cabeça
+  | 'gedan-barai'   // parry contra ataque baixo/tronco (chudan/gedan) — varredura baixa
   | 'hit'
   | 'victory'
   | 'bow';
+
+// Altura do golpe — define qual defesa de parry será disparada
+export type AttackHeight = 'high' | 'low';
 
 // Judge state — referee at the back of the dojo.
 // 'idle'  : standing at attention, hands at sides
