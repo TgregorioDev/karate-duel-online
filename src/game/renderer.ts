@@ -309,10 +309,12 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   }
 
   ctx.save();
+  // WKF mannequin proportions: ligeiramente mais altos e esguios.
+  // Escala vertical maior que a horizontal alonga a silhueta como nos pictogramas WKF.
   ctx.translate(x, y);
-  // Global fighter scale — bigger athletes, closer presence on screen
-  const FIGHTER_SCALE = 1.25;
-  ctx.scale(facing === 'left' ? -FIGHTER_SCALE : FIGHTER_SCALE, FIGHTER_SCALE);
+  const FIGHTER_SCALE_X = 1.05;
+  const FIGHTER_SCALE_Y = 1.32;
+  ctx.scale(facing === 'left' ? -FIGHTER_SCALE_X : FIGHTER_SCALE_X, FIGHTER_SCALE_Y);
 
   const hitShake = fState === 'hit' ? (Math.random() - 0.5) * 5 : 0;
   const t = Date.now();
@@ -344,11 +346,11 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
   ctx.ellipse(0, 4, 38, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Proportions — 7.5 head ratio (realistic athletic build)
-  const headR = 12;
-  const torsoLen = 42;
-  const legW = 16; // thigh width
-  const armW = 12;
+  // Proportions — slimmer WKF mannequin (alongado e mais fino)
+  const headR = 10;
+  const torsoLen = 48;
+  const legW = 12; // thigh width
+  const armW = 10;
 
   if (fState === 'idle' || fState === 'walk-forward' || fState === 'walk-backward') {
     const walkCycle = (fState === 'walk-forward' || fState === 'walk-backward') ? Math.sin(t / 130) * 0.18 : 0;
