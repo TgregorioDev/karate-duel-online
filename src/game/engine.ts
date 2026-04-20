@@ -488,16 +488,24 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
   if (dist > range) return;
 
   // PARRY — first PARRY_WINDOW frames of block = perfect timing → counter window opens
+  // Defesa escolhida pela ALTURA do golpe recebido:
+  //   - punch / gyaku-zuki  → ataques jodan/chudan altos  → UCHI-UKE
+  //   - kick  / mae-geri    → ataques chudan/gedan baixos → GEDAN BARAI
   if (defender.state === 'block' && defender.blockTimer <= PARRY_WINDOW) {
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 18, type: 'punch' };
     defender.parryFlash = 20;
     defender.parryWindow = PARRY_COUNTER_WINDOW;
     defender.stamina = Math.min(STAMINA_MAX, defender.stamina + 15); // reward perfect timing
+    // Mostra a defesa correspondente à altura do golpe por alguns frames
+    const isHighAttack = attacker.state === 'punch' || attacker.state === 'gyaku-zuki';
+    defender.state = isHighAttack ? 'uchi-uke' : 'gedan-barai';
+    defender.stateTimer = 22;
+    defender.blockTimer = 0;
     // Attacker stunned briefly, exposed to counter
     attacker.state = 'hit';
     attacker.stateTimer = 18;
     attacker.hitCooldown = 12;
-    state.judgeMessage = 'PARRY!';
+    state.judgeMessage = isHighAttack ? 'UCHI-UKE!' : 'GEDAN BARAI!';
     state.judgeTimer = 35;
     return;
   }
