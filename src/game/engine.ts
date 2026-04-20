@@ -54,6 +54,7 @@ const BOW_DURATION = 110;          // frames lutadores ficam reverenciando
 const HAJIME_HOLD = 50;            // frames com juiz no gesto de HAJIME antes da luta
 const POINT_HOLD = 90;             // frames com juiz apontando para o ponto
 const WINNER_HOLD = 180;           // frames de cerimônia final apontando o vencedor
+const POINT_BOW_DURATION = 70;     // frames de reverência mútua após cada ponto, antes do HAJIME
 
 export function startBowIn(state: GameState) {
   state.gameStatus = 'bow-in';
@@ -69,6 +70,8 @@ export function startBowIn(state: GameState) {
 
 export function startBowOut(state: GameState) {
   state.gameStatus = 'bow-out';
+  // Lutadores retornam aos seus marcos iniciais e se cumprimentam (rei final).
+  resetPositions(state);
   state.ceremonyTimer = BOW_DURATION + 60;
   state.player.state = 'bow';
   state.opponent.state = 'bow';
@@ -233,14 +236,38 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
         startBowOut(state);
         return state;
       }
-      // Otherwise: reset and judge calls HAJIME again to resume
+      // Caso contrário: lutadores voltam aos marcos iniciais e fazem
+      // reverência mútua. Após a reverência, juiz chama HAJIME e a luta retoma.
+      // Permanece em 'point-scored' enquanto o ceremonyTimer corre.
       resetPositions(state);
+      state.player.state = 'bow';
+      state.opponent.state = 'bow';
+      state.player.stateTimer = POINT_BOW_DURATION;
+      state.opponent.stateTimer = POINT_BOW_DURATION;
+      state.ceremonyTimer = POINT_BOW_DURATION;
+      state.judge = { state: 'idle', side: null, timer: POINT_BOW_DURATION };
+      state.judgeMessage = 'REI';
+      state.judgeTimer = POINT_BOW_DURATION;
+      return state;
+    }
+    if (state.gameStatus === 'point-scored') return state;
+  }
+
+  // Reverência pós-ponto em andamento: avança o tempo da cerimônia,
+  // ao terminar o juiz chama HAJIME e a luta volta para 'fighting'.
+  if (state.gameStatus === 'point-scored' && state.ceremonyTimer > 0) {
+    state.ceremonyTimer--;
+    if (state.player.stateTimer > 0) state.player.stateTimer--;
+    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
+    if (state.ceremonyTimer <= 0) {
+      state.player.state = 'idle';
+      state.opponent.state = 'idle';
       state.gameStatus = 'fighting';
       state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
       state.judgeMessage = 'HAJIME!';
       state.judgeTimer = HAJIME_HOLD;
     }
-    if (state.gameStatus === 'point-scored') return state;
+    return state;
   }
 
   // Timer
