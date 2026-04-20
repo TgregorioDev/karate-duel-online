@@ -406,18 +406,26 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
 
   } else if (fState === 'punch') {
-    // Zenkutsu-dachi — deep front stance, hips rotated
+    // Kizami-zuki — soco da mão da frente. A mão de trás é puxada
+    // FIRMEMENTE em HIKITE até a costela: cotovelo bem para trás do tronco,
+    // antebraço horizontal, punho colado à lateral baixa do peito (ki-no-kamae).
     const hipY = -34;
     drawAnimeLeg(ctx, 0, hipY, -16, hipY + 22, -30, 2, giMain, giFold, skin, skinShade, legW);
     drawAnimeLeg(ctx, 0, hipY, 18, hipY + 16, 28, 2, giMain, giFold, skin, skinShade, legW);
 
-    const shoulderY = hipY - torsoLen; const shoulderX = 6; // rotated forward
+    const shoulderY = hipY - torsoLen; const shoulderX = 6; // hanmi rotated forward
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Hikite — pulling hand back to hip
-    const backSX = shoulderX - 20;
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 2, shoulderY + 20, backSX + 2, hipY - 6, giMain, skin, skinShade, true, gloveCol);
-    // Punching arm — full extension
+    // HIKITE — mão de trás puxada com força ao quadril/costela
+    // cotovelo projetado bem atrás do tronco, antebraço horizontal, punho colado à costela
+    const hikiteSX = shoulderX - 18;
+    const hikiteElbowX = hikiteSX - 16; // cotovelo BEM atrás
+    const hikiteElbowY = shoulderY + 18;
+    const hikiteFistX = hikiteSX + 4;   // punho à frente do cotovelo, junto à costela
+    const hikiteFistY = hipY - 4;       // altura da costela inferior
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, hikiteElbowY, hikiteFistX, hikiteFistY, giMain, skin, skinShade, true, gloveCol);
+
+    // Punching arm — full extension chudan
     const frontSX = shoulderX + 20;
     drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 28, shoulderY + 4, frontSX + 56, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
 
@@ -435,8 +443,13 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = -4; // lean back
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backSX = shoulderX - 20;
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 10, shoulderY + 16, backSX - 6, hipY - 2, giMain, skin, skinShade, false, gloveCol);
+    // Mawashi-geri — ambas as mãos firmes em hikite/guarda fechada para gerar torque do tronco.
+    // Mão de trás em HIKITE total (cotovelo atrás, punho à costela);
+    // mão da frente fechada protegendo o queixo durante o giro.
+    const hikiteSX = shoulderX - 20;
+    const hikiteElbowX = hikiteSX - 14;
+    const hikiteFistX = hikiteSX + 6;
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, shoulderY + 18, hikiteFistX, hipY - 4, giMain, skin, skinShade, true, gloveCol);
     const frontSX = shoulderX + 20;
     drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 8, shoulderY + 16, frontSX + 4, shoulderY + 6, giMain, skin, skinShade, true, gloveCol);
 
@@ -464,9 +477,14 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
 
     drawAnimeTorso(ctx, 4, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Hikite — mão da frente puxada com força até a costela (cotovelo travado para trás)
+    // HIKITE — mão da frente puxada com força até a costela.
+    // Cotovelo BEM atrás do tronco, antebraço horizontal, punho colado à lateral baixa.
     const hikiteSX = shoulderX + 18;
-    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteSX + 6, shoulderY + 18, hikiteSX - 4, hipY - 6, giMain, skin, skinShade, true, gloveCol);
+    const hikiteElbowX = hikiteSX + 14;   // cotovelo projetado para trás (atrás do ombro nesse hanmi)
+    const hikiteElbowY = shoulderY + 18;
+    const hikiteFistX = hikiteSX - 6;     // punho à frente do cotovelo, na costela
+    const hikiteFistY = hipY - 4;         // costela inferior
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, hikiteElbowY, hikiteFistX, hikiteFistY, giMain, skin, skinShade, true, gloveCol);
 
     // Soco reverso — ombro de trás VEM PARA FRENTE com o quadril.
     // Trajetória RETA: ombro, cotovelo e punho alinhados horizontalmente na altura do peito.
@@ -490,10 +508,14 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = -2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    const backSX = shoulderX - 20;
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 6, shoulderY + 16, backSX - 2, shoulderY + 4, giMain, skin, skinShade, false, gloveCol);
+    // Mae-geri — mão de trás em HIKITE firme (gera reação para o snap do quadril);
+    // mão da frente em guarda alta para proteger durante o avanço.
+    const hikiteSX = shoulderX - 20;
+    const hikiteElbowX = hikiteSX - 14;
+    const hikiteFistX = hikiteSX + 6;
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, shoulderY + 18, hikiteFistX, hipY - 4, giMain, skin, skinShade, true, gloveCol);
     const frontSX = shoulderX + 20;
-    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 8, shoulderY + 16, frontSX + 4, shoulderY + 4, giMain, skin, skinShade, true, gloveCol);
+    drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 10, shoulderY + 14, frontSX + 18, shoulderY + 2, giMain, skin, skinShade, true, gloveCol);
 
     drawAnimeHead(ctx, shoulderX, shoulderY, fState, skin, skinShade, skinHighlight, accentColor, headR);
 
@@ -506,10 +528,14 @@ function drawFighter(ctx: CanvasRenderingContext2D, fighter: Fighter, label: str
     const shoulderY = hipY - torsoLen; const shoulderX = 2;
     drawAnimeTorso(ctx, 0, hipY, shoulderX, shoulderY, giMain, giShade, giFold, beltCol);
 
-    // Back arm at hip
-    const backSX = shoulderX - 20;
-    drawAnimeArm(ctx, backSX, shoulderY + 6, backSX - 2, shoulderY + 20, backSX + 2, hipY - 4, giMain, skin, skinShade, true, gloveCol);
-    // Front arm — uchi uke sweep
+    // Uchi-uke clássico: mão que defende varre para fora, e a mão oposta vai
+    // simultaneamente em HIKITE até a costela — esse contra-puxar dá potência
+    // ao bloqueio (gera o torque do tronco, igual ao golpe).
+    const hikiteSX = shoulderX - 20;
+    const hikiteElbowX = hikiteSX - 14;
+    const hikiteFistX = hikiteSX + 6;
+    drawAnimeArm(ctx, hikiteSX, shoulderY + 6, hikiteElbowX, shoulderY + 18, hikiteFistX, hipY - 4, giMain, skin, skinShade, true, gloveCol);
+    // Front arm — uchi-uke sweep (antebraço varre para fora/cima)
     const frontSX = shoulderX + 20;
     drawAnimeArm(ctx, frontSX, shoulderY + 6, frontSX + 16, shoulderY + 12, frontSX + 24, shoulderY - 4, giMain, skin, skinShade, true, gloveCol);
 
