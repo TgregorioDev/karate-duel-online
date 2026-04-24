@@ -1,14 +1,13 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { createInitialState, updateGame, resetPositions, startBowIn } from '@/game/engine';
+import { useRef, useEffect, useCallback } from 'react';
+import { createInitialState, updateGame, startBowIn } from '@/game/engine';
 import { renderGame } from '@/game/renderer';
-import { GameState, InputState, CANVAS_WIDTH, CANVAS_HEIGHT, FIGHT_DURATION } from '@/game/types';
+import { GameState, InputState, CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/types';
 
 export default function KarateGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState>(createInitialState());
   const inputRef = useRef<InputState>({ left: false, right: false, punch: false, kick: false, gyakuZuki: false, maeGeri: false, block: false });
   const animFrameRef = useRef<number>(0);
-  const [, forceRender] = useState(0);
 
   const startGame = useCallback(() => {
     const gs = gameStateRef.current;
@@ -36,6 +35,7 @@ export default function KarateGame() {
           break;
       }
     };
+
     const handleKeyUp = (e: KeyboardEvent) => {
       const inp = inputRef.current;
       switch (e.key.toLowerCase()) {
@@ -71,7 +71,6 @@ export default function KarateGame() {
 
       gameStateRef.current = updateGame(gameStateRef.current, inputRef.current, dt);
 
-      // Reset one-shot inputs
       inputRef.current.punch = false;
       inputRef.current.kick = false;
       inputRef.current.gyakuZuki = false;
@@ -86,28 +85,36 @@ export default function KarateGame() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 select-none">
-      <h1 className="text-3xl font-bold text-glow-red tracking-widest" style={{ color: 'hsl(0, 72%, 51%)' }}>
-        空手 KARATÊ
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 select-none">
+      <h1 className="text-3xl font-bold tracking-widest text-glow-red" style={{ color: 'hsl(0, 72%, 51%)' }}>
+        KARATE DUEL
       </h1>
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="border-2 rounded-lg shadow-2xl max-w-full"
+        className="max-w-full rounded-lg border-2 shadow-2xl"
         style={{
           borderColor: 'hsl(0, 72%, 30%)',
           imageRendering: 'auto',
         }}
         tabIndex={0}
       />
-      <div className="flex gap-4 text-xs flex-wrap justify-center" style={{ color: 'hsl(40, 10%, 55%)' }}>
-        <span>← → Mover</span>
-        <span>Z Soco</span>
-        <span>V Gyaku-zuki</span>
-        <span>X Chute</span>
-        <span>B Mae-geri</span>
-        <span>C Defesa</span>
+      <div className="flex max-w-5xl flex-col items-center gap-2 text-xs" style={{ color: 'hsl(40, 10%, 55%)' }}>
+        <div className="flex flex-wrap justify-center gap-4">
+          <span>Left/Right ou A/D: mover</span>
+          <span>Z: kizami-tsuki (yuko)</span>
+          <span>V: gyaku-zuki (yuko)</span>
+          <span>X: chute jodan (ippon)</span>
+          <span>B: chute chudan (waza-ari)</span>
+          <span>C: defesa</span>
+        </div>
+        <div className="flex flex-wrap justify-center gap-4 font-medium" style={{ color: 'hsl(45, 80%, 68%)' }}>
+          <span>Yuko = 1</span>
+          <span>Waza-ari = 2</span>
+          <span>Ippon = 3</span>
+          <span>Diferenca de 8 encerra a luta</span>
+        </div>
       </div>
     </div>
   );

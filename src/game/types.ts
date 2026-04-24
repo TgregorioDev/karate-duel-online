@@ -92,17 +92,22 @@ export interface InputState {
   block: boolean;
 }
 
+export type ScoreCall = 'YUKO' | 'WAZA-ARI' | 'IPPON';
+
 export const CANVAS_WIDTH = 960;
 export const CANVAS_HEIGHT = 540;
 export const GROUND_Y = 420;
 export const FIGHT_DURATION = 90;
-export const MAX_SCORE = 4;
 export const FIGHTER_WIDTH = 75;
 export const FIGHTER_HEIGHT = 150;
 export const PUNCH_RANGE = 88;
 export const KICK_RANGE = 112;
 export const GYAKU_ZUKI_RANGE = 82;
 export const MAE_GERI_RANGE = 100;
+export const YUKO_POINTS = 1;
+export const WAZA_ARI_POINTS = 2;
+export const IPPON_POINTS = 3;
+export const VICTORY_POINT_GAP = 8;
 export const STAMINA_MAX = 100;
 export const STAMINA_REGEN_IDLE = 0.9;       // standing still / recovering
 export const STAMINA_REGEN_RETREAT = 0.55;   // backing away

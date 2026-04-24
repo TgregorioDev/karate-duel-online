@@ -1,9 +1,10 @@
 import {
-  Fighter, GameState, InputState, JudgeSide,
-  CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION, MAX_SCORE,
+  Fighter, FighterState, GameState, InputState, JudgeSide, ScoreCall,
+  CANVAS_WIDTH, GROUND_Y, FIGHT_DURATION,
   FIGHTER_WIDTH, PUNCH_RANGE, KICK_RANGE, GYAKU_ZUKI_RANGE, MAE_GERI_RANGE,
   STAMINA_MAX, STAMINA_REGEN_IDLE, STAMINA_REGEN_RETREAT, BLOCK_DRAIN,
   PUNCH_COST, KICK_COST, GYAKU_ZUKI_COST, MAE_GERI_COST,
+  YUKO_POINTS, WAZA_ARI_POINTS, IPPON_POINTS, VICTORY_POINT_GAP,
   PARRY_WINDOW, PARRY_COUNTER_WINDOW, ATTACK_STARTUP_TELEGRAPH,
 } from './types';
 
@@ -32,6 +33,7 @@ function startLunge(fighter: Fighter, target: Fighter, attack: string) {
 }
 
 export function createInitialState(): GameState {
+  resetAIState();
   return {
     // WKF style: AKA wears RED belt+gloves, AO wears BLUE belt+gloves.
     player: createFighter(280, 'right', '#ffffff', '#d4202a', '#d4202a'),
@@ -86,6 +88,7 @@ export function startBowOut(state: GameState) {
 }
 
 export function resetPositions(state: GameState) {
+  resetAIState();
   state.player.x = 280;
   state.opponent.x = 680;
   state.player.state = 'idle';
@@ -176,6 +179,85 @@ function isAttackState(state: string): boolean {
   return state === 'punch' || state === 'kick' || state === 'gyaku-zuki' || state === 'mae-geri';
 }
 
+type ScoreAward = {
+  call: ScoreCall;
+  points: number;
+};
+
+export function getScoreAward(
+  attack: FighterState,
+  defender: Pick<Fighter, 'state' | 'stateTimer' | 'exhausted'>,
+): ScoreAward | null {
+  const againstDownedOpponent = defender.exhausted > 0 || (defender.state === 'hit' && defender.stateTimer > 0);
+  if (againstDownedOpponent) {
+    return { call: 'IPPON', points: IPPON_POINTS };
+  }
+
+  switch (attack) {
+    case 'kick':
+      return { call: 'IPPON', points: IPPON_POINTS };
+    case 'mae-geri':
+      return { call: 'WAZA-ARI', points: WAZA_ARI_POINTS };
+    case 'punch':
+    case 'gyaku-zuki':
+      return { call: 'YUKO', points: YUKO_POINTS };
+    default:
+      return null;
+  }
+}
+
+export function getPointGapWinner(playerScore: number, opponentScore: number): 'player' | 'opponent' | null {
+  const diff = playerScore - opponentScore;
+  if (Math.abs(diff) < VICTORY_POINT_GAP) return null;
+  return diff > 0 ? 'player' : 'opponent';
+}
+
+export type AICombatMode = 'pressure' | 'bait' | 'evasive' | 'punish';
+
+export function isWhiffRecoveryWindow(
+  attack: FighterState,
+  stateTimer: number,
+  dist: number,
+): boolean {
+  if (!isAttackState(attack)) return false;
+  const range = getAttackRange(attack);
+  const duration = ATTACK_DURATION[attack] || 12;
+  const hitFrame = Math.floor(duration / 2);
+  return stateTimer > 0 && stateTimer < hitFrame && dist > range + 16;
+}
+
+export function getAICombatMode(params: {
+  scoreDelta: number;
+  timeRemaining: number;
+  opponentStamina: number;
+  playerStamina: number;
+  dist: number;
+  playerState: FighterState;
+  playerStateTimer: number;
+  playerTelegraphing: boolean;
+  opponentParryWindow: number;
+}): AICombatMode {
+  const {
+    scoreDelta,
+    timeRemaining,
+    opponentStamina,
+    playerStamina,
+    dist,
+    playerState,
+    playerStateTimer,
+    playerTelegraphing,
+    opponentParryWindow,
+  } = params;
+
+  if (opponentParryWindow > 0) return 'punish';
+  if (isWhiffRecoveryWindow(playerState, playerStateTimer, dist)) return 'punish';
+  if (playerTelegraphing && dist < KICK_RANGE + 22) return 'evasive';
+  if (opponentStamina < 24) return 'evasive';
+  if (scoreDelta <= -2 || (timeRemaining < 20 && scoreDelta < 0) || playerStamina < 30) return 'pressure';
+  if (scoreDelta >= 3 && timeRemaining < 25) return 'evasive';
+  return 'bait';
+}
+
 function ensureGameStateShape(state: GameState) {
   if (!state.judge) {
     state.judge = { state: 'idle', side: null, timer: 0 };
@@ -250,8 +332,9 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 
     // Quando o anúncio do ponto termina, ou encerra a luta ou inicia a reverência pós-ponto.
     if (state.judgeTimer <= 0) {
-      if (state.player.score >= MAX_SCORE || state.opponent.score >= MAX_SCORE) {
-        state.winner = state.player.score >= MAX_SCORE ? 'player' : 'opponent';
+      const pointGapWinner = getPointGapWinner(state.player.score, state.opponent.score);
+      if (pointGapWinner) {
+        state.winner = pointGapWinner;
         startBowOut(state);
         return state;
       }
@@ -533,6 +616,9 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
     return;
   }
 
+  const award = getScoreAward(attacker.state, defender);
+  if (!award) return;
+
   // HIT!
   defender.state = 'hit';
   defender.stateTimer = HIT_STUN;
@@ -550,12 +636,14 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
   };
 
   // Score point
-  attacker.score += 1;
+  attacker.score += award.points;
   state.pointScoredBy = attackerLabel;
   state.gameStatus = 'point-scored';
+  state.winner = getPointGapWinner(state.player.score, state.opponent.score) ?? state.winner;
 
-  const scoreNames = ['', 'IPPON!', 'NIHON!', 'SANBON!', 'YONHON!'];
+  const scoreNames = [`${award.call} +${award.points}`];
   state.judgeMessage = `YAME! — ${scoreNames[attacker.score] || 'PONTO!'}`;
+  state.judgeMessage = `YAME! ${scoreNames[0]}`;
   state.judgeTimer = POINT_HOLD;
   state.judge = {
     state: 'point',
@@ -570,10 +658,74 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
 }
 
 // ===== AI =====
+type AIAttack = 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri';
+type AIAction = 'idle' | 'advance' | 'retreat' | 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | 'block' | 'hold-range' | 'dash-in';
+
 let aiActionTimer = 0;
-let aiAction: 'idle' | 'advance' | 'retreat' | 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | 'block' = 'idle';
-// Pre-planned follow-up attack to chain into the cancel window (AI combos)
-let aiComboNext: 'punch' | 'kick' | 'gyaku-zuki' | 'mae-geri' | null = null;
+let aiAction: AIAction = 'idle';
+let aiComboNext: AIAttack | null = null;
+
+function resetAIState() {
+  aiActionTimer = 0;
+  aiAction = 'idle';
+  aiComboNext = null;
+}
+
+function isCornered(fighter: Fighter): boolean {
+  return fighter.x <= 120 || fighter.x >= CANVAS_WIDTH - 120;
+}
+
+function chooseAIAttack(
+  dist: number,
+  stamina: number,
+  mode: AICombatMode,
+  diff: number,
+): AIAttack {
+  if (stamina >= KICK_COST && dist > MAE_GERI_RANGE + 6) return 'kick';
+  if (stamina >= MAE_GERI_COST && dist > GYAKU_ZUKI_RANGE + 6) return 'mae-geri';
+
+  const roll = Math.random();
+  if (mode === 'punish') {
+    if (dist <= PUNCH_RANGE + 6) return roll < 0.65 ? 'gyaku-zuki' : 'punch';
+    if (dist <= GYAKU_ZUKI_RANGE + 10 && stamina >= GYAKU_ZUKI_COST) return 'gyaku-zuki';
+    return stamina >= MAE_GERI_COST ? 'mae-geri' : 'kick';
+  }
+
+  if (mode === 'pressure') {
+    if (dist <= PUNCH_RANGE + 4) return roll < 0.55 ? 'punch' : 'gyaku-zuki';
+    if (dist <= GYAKU_ZUKI_RANGE + 10) return roll < 0.6 ? 'gyaku-zuki' : 'mae-geri';
+    return roll < 0.45 + diff * 0.15 ? 'kick' : 'mae-geri';
+  }
+
+  if (dist <= PUNCH_RANGE) return roll < 0.4 ? 'punch' : 'gyaku-zuki';
+  return roll < 0.5 ? 'mae-geri' : 'kick';
+}
+
+function planAICombo(
+  opener: AIAttack,
+  stamina: number,
+  mode: AICombatMode,
+  diff: number,
+): AIAttack | null {
+  if (stamina < 44) return null;
+  const comboChance = mode === 'pressure'
+    ? 0.35 + diff * 0.35
+    : mode === 'punish'
+      ? 0.45 + diff * 0.3
+      : 0.18 + diff * 0.15;
+  if (Math.random() >= comboChance) return null;
+
+  if (opener === 'punch') return Math.random() < 0.75 ? 'gyaku-zuki' : 'mae-geri';
+  if (opener === 'gyaku-zuki') return Math.random() < 0.55 ? 'kick' : 'punch';
+  if (opener === 'kick') return 'gyaku-zuki';
+  return Math.random() < 0.5 ? 'punch' : 'gyaku-zuki';
+}
+
+function setAIAction(nextAction: AIAction, timer: number, comboNext: AIAttack | null = null) {
+  aiAction = nextAction;
+  aiActionTimer = timer;
+  aiComboNext = comboNext;
+}
 
 export function updateAI(state: GameState) {
   const opp = state.opponent;
@@ -625,11 +777,84 @@ export function updateAI(state: GameState) {
   const dist = Math.abs(opp.x - player.x);
   const diff = state.aiDifficulty;
 
-  // React to player's TELEGRAPH (smarter AI uses the wind-up window for parry attempts)
   const playerTelegraphing = player.telegraphFlash > 0 && isAttackState(player.state);
+  const playerWhiffing = isWhiffRecoveryWindow(player.state, player.stateTimer, dist);
+  const scoreDelta = opp.score - player.score;
+  const aiMode = getAICombatMode({
+    scoreDelta,
+    timeRemaining: state.timeRemaining,
+    opponentStamina: opp.stamina,
+    playerStamina: player.stamina,
+    dist,
+    playerState: player.state,
+    playerStateTimer: player.stateTimer,
+    playerTelegraphing,
+    opponentParryWindow: opp.parryWindow,
+  });
+  const attackWindow = dist <= KICK_RANGE + 20;
+  const cornered = isCornered(opp);
 
   aiActionTimer--;
   if (aiActionTimer <= 0) {
+    const rand = Math.random();
+
+    if (opp.parryWindow > 0 && attackWindow) {
+      const punish = chooseAIAttack(dist, opp.stamina, 'punish', diff);
+      setAIAction(punish, 6, planAICombo(punish, opp.stamina, 'punish', diff));
+    } else if (playerWhiffing && dist < KICK_RANGE + 34) {
+      if (dist > GYAKU_ZUKI_RANGE + 12 && rand < 0.55) {
+        setAIAction('dash-in', 8);
+      } else {
+        const punish = chooseAIAttack(dist, opp.stamina, 'punish', diff);
+        setAIAction(punish, 6, planAICombo(punish, opp.stamina, 'punish', diff));
+      }
+    } else if (playerTelegraphing && dist < KICK_RANGE + 22) {
+      const playerRange = getAttackRange(player.state);
+      if (dist <= playerRange + 10 && rand < 0.4 + diff * 0.45) {
+        setAIAction('block', 8 + Math.floor(diff * 6));
+      } else if (!cornered && rand < 0.88) {
+        setAIAction('retreat', 10 + Math.floor(Math.random() * 8));
+      } else if (attackWindow && opp.stamina >= GYAKU_ZUKI_COST && rand < 0.35 + diff * 0.2) {
+        const counter = chooseAIAttack(dist, opp.stamina, 'punish', diff);
+        setAIAction(counter, 6, planAICombo(counter, opp.stamina, 'punish', diff));
+      } else {
+        setAIAction('hold-range', 10);
+      }
+    } else if (aiMode === 'evasive') {
+      if (dist < KICK_RANGE + 10 && !cornered) {
+        setAIAction(rand < 0.7 ? 'retreat' : 'block', 14 + Math.floor(Math.random() * 8));
+      } else if (dist < PUNCH_RANGE && cornered && opp.stamina >= GYAKU_ZUKI_COST) {
+        setAIAction('gyaku-zuki', 6, planAICombo('gyaku-zuki', opp.stamina, 'punish', diff));
+      } else if (dist > KICK_RANGE + 24) {
+        setAIAction(rand < 0.6 ? 'idle' : 'hold-range', 12 + Math.floor(Math.random() * 10));
+      } else {
+        setAIAction('hold-range', 12 + Math.floor(Math.random() * 8));
+      }
+    } else if (aiMode === 'pressure') {
+      if (dist > KICK_RANGE + 28) {
+        setAIAction(rand < 0.65 ? 'dash-in' : 'advance', 10 + Math.floor(Math.random() * 8));
+      } else if (dist < PUNCH_RANGE - 10 && !cornered && rand < 0.35) {
+        setAIAction('retreat', 8 + Math.floor(Math.random() * 6));
+      } else if (attackWindow && rand < 0.55 + diff * 0.25) {
+        const opener = chooseAIAttack(dist, opp.stamina, 'pressure', diff);
+        setAIAction(opener, 8, planAICombo(opener, opp.stamina, 'pressure', diff));
+      } else {
+        setAIAction(rand < 0.5 ? 'hold-range' : 'advance', 10 + Math.floor(Math.random() * 8));
+      }
+    } else {
+      if (dist < PUNCH_RANGE - 6 && !cornered) {
+        setAIAction(rand < 0.6 ? 'retreat' : 'hold-range', 10 + Math.floor(Math.random() * 10));
+      } else if (dist > KICK_RANGE + 44) {
+        setAIAction(rand < 0.55 ? 'advance' : 'dash-in', 10 + Math.floor(Math.random() * 8));
+      } else if (attackWindow && rand < 0.25 + diff * 0.18) {
+        const probe = chooseAIAttack(dist, opp.stamina, 'bait', diff);
+        setAIAction(probe, 7, planAICombo(probe, opp.stamina, 'bait', diff));
+      } else {
+        setAIAction(rand < 0.45 ? 'hold-range' : rand < 0.72 ? 'retreat' : 'idle', 9 + Math.floor(Math.random() * 10));
+      }
+    }
+  }
+  if (false && aiActionTimer <= 0) {
     const rand = Math.random();
 
     if (playerTelegraphing && dist < KICK_RANGE + 20) {
@@ -707,21 +932,52 @@ export function updateAI(state: GameState) {
   // Execute action with action-based stamina regen
   const speed = 2.5 + diff;
   const dir = player.x < opp.x ? -1 : 1;
+  const releaseBlock = () => {
+    if (opp.state === 'block') {
+      opp.state = 'idle';
+      opp.blockTimer = 0;
+    }
+  };
 
   switch (aiAction) {
     case 'advance':
+      releaseBlock();
       opp.velocityX = dir * speed;
       opp.state = 'walk-forward';
       break;
+    case 'dash-in':
+      releaseBlock();
+      opp.velocityX = dir * (speed * 1.35);
+      opp.state = 'walk-forward';
+      break;
     case 'retreat':
+      releaseBlock();
       opp.velocityX = -dir * (speed * 0.8);
       opp.state = 'walk-backward';
       opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_RETREAT);
       break;
+    case 'hold-range': {
+      releaseBlock();
+      const desiredRange = aiMode === 'bait' ? KICK_RANGE + 18 : GYAKU_ZUKI_RANGE + 12;
+      if (dist < desiredRange - 14 && !cornered) {
+        opp.velocityX = -dir * (speed * 0.7);
+        opp.state = 'walk-backward';
+        opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_RETREAT);
+      } else if (dist > desiredRange + 20) {
+        opp.velocityX = dir * (speed * 0.75);
+        opp.state = 'walk-forward';
+      } else {
+        opp.velocityX = 0;
+        opp.state = 'idle';
+        opp.stamina = Math.min(STAMINA_MAX, opp.stamina + STAMINA_REGEN_IDLE);
+      }
+      break;
+    }
     case 'punch':
     case 'gyaku-zuki':
     case 'kick':
     case 'mae-geri':
+      releaseBlock();
       if (executeAIAttack(opp, player, aiAction, diff)) {
         aiAction = 'idle';
       }
@@ -742,6 +998,7 @@ export function updateAI(state: GameState) {
       }
       break;
     default:
+      releaseBlock();
       opp.velocityX = 0;
       if (opp.state === 'walk-forward' || opp.state === 'walk-backward') opp.state = 'idle';
       // Idle regen

@@ -1,4 +1,4 @@
-import { Fighter, GameState, CANVAS_WIDTH, CANVAS_HEIGHT, GROUND_Y, STAMINA_MAX, MAX_SCORE } from './types';
+import { Fighter, GameState, CANVAS_WIDTH, CANVAS_HEIGHT, GROUND_Y, STAMINA_MAX, VICTORY_POINT_GAP } from './types';
 
 // ============ ANIME-STYLE KARATE RENDERER ============
 // Cel-shaded look with bold outlines, expressive anime faces, speed lines, and manga effects
@@ -25,7 +25,10 @@ export function renderGame(ctx: CanvasRenderingContext2D, state: GameState) {
   if (state.hitEffect) drawAnimeHitEffect(ctx, state.hitEffect);
   drawAnimeHUD(ctx, state);
   if (state.judgeTimer > 0) drawAnimeJudgeMessage(ctx, state.judgeMessage);
-  if (state.gameStatus === 'menu') drawAnimeMenu(ctx);
+  if (state.gameStatus === 'menu') {
+    drawAnimeMenu(ctx);
+    drawCleanMenuOverlay(ctx);
+  }
   if (state.gameStatus === 'game-over') drawAnimeGameOver(ctx, state);
 }
 
@@ -258,7 +261,6 @@ function drawAnimeBackground(ctx: CanvasRenderingContext2D) {
   ctx.quadraticCurveTo(480, 40, 355, 60);
   ctx.closePath();
   ctx.fill();
-  ctx.restore();
 }
 
 // ============ FIGHTER DRAWING ============
@@ -1151,22 +1153,10 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.textAlign = 'left';
   ctx.fillText('AKA', 20, 18);
 
-  // Score circles
-  for (let i = 0; i < MAX_SCORE; i++) {
-    ctx.beginPath();
-    ctx.arc(20 + i * 26, 36, 7, 0, Math.PI * 2);
-    if (i < state.player.score) {
-      ctx.fillStyle = '#ff4444';
-      ctx.fill();
-      ctx.strokeStyle = '#ff8888';
-    } else {
-      ctx.fillStyle = '#222';
-      ctx.fill();
-      ctx.strokeStyle = '#444';
-    }
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
+  ctx.fillStyle = '#ff4444';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(String(state.player.score), 20, 48);
 
   // Opponent label — AO (blue)
   ctx.fillStyle = '#66aaff';
@@ -1174,21 +1164,10 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.textAlign = 'right';
   ctx.fillText('AO', CANVAS_WIDTH - 20, 18);
 
-  for (let i = 0; i < MAX_SCORE; i++) {
-    ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH - 20 - i * 26, 36, 7, 0, Math.PI * 2);
-    if (i < state.opponent.score) {
-      ctx.fillStyle = '#4488ff';
-      ctx.fill();
-      ctx.strokeStyle = '#88bbff';
-    } else {
-      ctx.fillStyle = '#222';
-      ctx.fill();
-      ctx.strokeStyle = '#444';
-    }
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
+  ctx.fillStyle = '#4488ff';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(String(state.opponent.score), CANVAS_WIDTH - 20, 48);
 
   // Timer with glow
   const minutes = Math.floor(state.timeRemaining / 60);
@@ -1243,6 +1222,11 @@ function drawAnimeHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.fillStyle = oStamGrad;
   const oppW = (state.opponent.stamina / STAMINA_MAX) * barWidth;
   ctx.fillRect(CANVAS_WIDTH - 20 - oppW, barY, oppW, barHeight);
+
+  ctx.fillStyle = '#c49a6c';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`lead by ${VICTORY_POINT_GAP} wins`, CANVAS_WIDTH / 2, 14);
 }
 
 // ============ ANIME JUDGE MESSAGE ============
@@ -1332,10 +1316,10 @@ function drawAnimeMenu(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = 'rgba(20,10,30,0.7)';
   ctx.strokeStyle = '#cc2233';
   ctx.lineWidth = 2;
-  const panelX = cx - 180;
+  const panelX = cx - 220;
   const panelY = 215;
-  ctx.fillRect(panelX, panelY, 360, 215);
-  ctx.strokeRect(panelX, panelY, 360, 215);
+  ctx.fillRect(panelX, panelY, 440, 235);
+  ctx.strokeRect(panelX, panelY, 440, 235);
 
   ctx.fillStyle = '#ddd';
   ctx.font = '14px sans-serif';
@@ -1361,6 +1345,70 @@ function drawAnimeMenu(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = blink > 0 ? '#ff3344' : '#cc2233';
   ctx.font = 'bold 24px sans-serif';
   ctx.fillText('▶  Pressione ENTER para lutar!  ◀', cx, 430);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawCleanMenuOverlay(ctx: CanvasRenderingContext2D) {
+  const cx = CANVAS_WIDTH / 2;
+  const panelX = cx - 220;
+  const panelY = 215;
+  const blink = Math.sin(Date.now() / 300);
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(5,0,15,0.94)';
+  ctx.fillRect(140, 92, CANVAS_WIDTH - 280, 116);
+  ctx.fillRect(panelX - 4, panelY - 4, 448, 243);
+  ctx.fillRect(cx - 220, 450, 440, 38);
+
+  ctx.save();
+  ctx.shadowColor = '#ff2244';
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = '#ff3344';
+  ctx.strokeStyle = OUTLINE_COL;
+  ctx.lineWidth = 4;
+  ctx.font = 'bold 68px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.strokeText('KARATE DUEL', cx, 150);
+  ctx.fillText('KARATE DUEL', cx, 150);
+  ctx.restore();
+
+  ctx.fillStyle = '#c49a6c';
+  ctx.font = 'italic 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('kumite arcade ruleset', cx, 190);
+
+  ctx.fillStyle = 'rgba(20,10,30,0.82)';
+  ctx.strokeStyle = '#cc2233';
+  ctx.lineWidth = 2;
+  ctx.fillRect(panelX, panelY, 440, 235);
+  ctx.strokeRect(panelX, panelY, 440, 235);
+
+  ctx.fillStyle = '#ddd';
+  ctx.font = '14px sans-serif';
+  const rules = [
+    'Left/Right ou A/D: mover    C/L: defesa',
+    'Z: kizami-tsuki = yuko (1)',
+    'V: gyaku-zuki = yuko (1)',
+    'B: mae-geri chudan = waza-ari (2)',
+    'X: yoko-geri jodan = ippon (3)',
+    '',
+    'Ippon tambem vale em oponente abatido.',
+    'Diferenca de 8 pontos encerra a luta.',
+    'Stamina so recupera parado ou recuando.',
+    'Parry no timing certo abre contra-ataque.',
+  ];
+  rules.forEach((text, i) => {
+    ctx.fillText(text, cx, panelY + 22 + i * 22);
+  });
+
+  ctx.save();
+  ctx.shadowColor = '#ff2244';
+  ctx.shadowBlur = blink > 0 ? 20 : 5;
+  ctx.fillStyle = blink > 0 ? '#ff3344' : '#cc2233';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText('Pressione ENTER para lutar', cx, 474);
   ctx.restore();
 
   ctx.restore();
