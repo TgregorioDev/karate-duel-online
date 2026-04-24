@@ -6,6 +6,9 @@ import {
   PUNCH_COST, KICK_COST, GYAKU_ZUKI_COST, MAE_GERI_COST,
   YUKO_POINTS, WAZA_ARI_POINTS, IPPON_POINTS, VICTORY_POINT_GAP,
   PARRY_WINDOW, PARRY_COUNTER_WINDOW, ATTACK_STARTUP_TELEGRAPH,
+  PUNCH_DURATION_FRAMES, KICK_DURATION_FRAMES, GYAKU_ZUKI_DURATION_FRAMES,
+  MAE_GERI_DURATION_FRAMES, HIT_STUN_FRAMES, PARRY_DEFENSE_DURATION_FRAMES,
+  EXHAUSTED_DURATION_FRAMES,
 } from './types';
 
 export function createFighter(x: number, facing: 'left' | 'right', color: string, accent: string, belt: string): Fighter {
@@ -52,8 +55,8 @@ export function createInitialState(): GameState {
 }
 
 // ===== Ceremony helpers =====
-const BOW_DURATION = 110;          // frames lutadores ficam reverenciando
-const HAJIME_HOLD = 50;            // frames com juiz no gesto de HAJIME antes da luta
+const BOW_DURATION = 72;           // frames lutadores ficam reverenciando
+const HAJIME_HOLD = 24;            // frames com juiz no gesto de HAJIME antes da luta
 const POINT_HOLD = 90;             // frames com juiz apontando para o ponto
 const WINNER_HOLD = 180;           // frames de cerimônia final apontando o vencedor
 const POINT_BOW_DURATION = 70;     // frames de reverência mútua após cada ponto, antes do HAJIME
@@ -117,10 +120,10 @@ export function resetPositions(state: GameState) {
 }
 
 const ATTACK_DURATION: Record<string, number> = {
-  punch: 12,
-  kick: 18,
-  'gyaku-zuki': 14,
-  'mae-geri': 16,
+  punch: PUNCH_DURATION_FRAMES,
+  kick: KICK_DURATION_FRAMES,
+  'gyaku-zuki': GYAKU_ZUKI_DURATION_FRAMES,
+  'mae-geri': MAE_GERI_DURATION_FRAMES,
 };
 const ATTACK_COSTS: Record<string, number> = {
   punch: PUNCH_COST,
@@ -128,7 +131,7 @@ const ATTACK_COSTS: Record<string, number> = {
   kick: KICK_COST,
   'mae-geri': MAE_GERI_COST,
 };
-const HIT_STUN = 20;
+const HIT_STUN = HIT_STUN_FRAMES;
 
 // Explosive lunge (tobikomi) — burst forward at the start of each attack.
 // Tuned per technique: jabs are quick darts, gyaku-zuki commits deeper, kicks lunge the most.
@@ -267,19 +270,32 @@ function ensureGameStateShape(state: GameState) {
   }
 }
 
+function advanceFrameTimer(timer: number, dt: number) {
+  if (timer <= 0) return 0;
+  return Math.max(0, timer - dt);
+}
+
+function crossedTimerThreshold(previous: number, next: number, threshold: number) {
+  return previous > threshold && next <= threshold;
+}
+
 export function updateGame(state: GameState, input: InputState, dt: number): GameState {
   ensureGameStateShape(state);
   // ===== Bow-in ceremony =====
   if (state.gameStatus === 'bow-in') {
-    if (state.judgeTimer > 0) state.judgeTimer--;
-    if (state.player.stateTimer > 0) state.player.stateTimer--;
-    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
-    if (state.ceremonyTimer > 0) state.ceremonyTimer--;
+    const previousCeremonyTimer = state.ceremonyTimer;
+    state.judge.timer = advanceFrameTimer(state.judge.timer, dt);
+    state.judgeTimer = advanceFrameTimer(state.judgeTimer, dt);
+    state.player.stateTimer = advanceFrameTimer(state.player.stateTimer, dt);
+    state.opponent.stateTimer = advanceFrameTimer(state.opponent.stateTimer, dt);
+    state.ceremonyTimer = advanceFrameTimer(state.ceremonyTimer, dt);
 
     // After the bow ends, fighters return to idle and judge calls HAJIME
-    if (state.ceremonyTimer === HAJIME_HOLD) {
+    if (crossedTimerThreshold(previousCeremonyTimer, state.ceremonyTimer, HAJIME_HOLD)) {
       state.player.state = 'idle';
       state.opponent.state = 'idle';
+      state.player.stateTimer = 0;
+      state.opponent.stateTimer = 0;
       state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
       state.judgeMessage = 'HAJIME!';
       state.judgeTimer = HAJIME_HOLD;
@@ -295,10 +311,11 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 
   // ===== Bow-out ceremony (end of match) =====
   if (state.gameStatus === 'bow-out') {
-    if (state.judgeTimer > 0) state.judgeTimer--;
-    if (state.player.stateTimer > 0) state.player.stateTimer--;
-    if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
-    if (state.ceremonyTimer > 0) state.ceremonyTimer--;
+    state.judge.timer = advanceFrameTimer(state.judge.timer, dt);
+    state.judgeTimer = advanceFrameTimer(state.judgeTimer, dt);
+    state.player.stateTimer = advanceFrameTimer(state.player.stateTimer, dt);
+    state.opponent.stateTimer = advanceFrameTimer(state.opponent.stateTimer, dt);
+    state.ceremonyTimer = advanceFrameTimer(state.ceremonyTimer, dt);
     if (state.ceremonyTimer <= 0) {
       state.gameStatus = 'game-over';
     }
@@ -308,20 +325,22 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
   if (state.gameStatus !== 'fighting' && state.gameStatus !== 'point-scored') return state;
 
   // Judge timers / paused point ceremony
-  if (state.judge.timer > 0) state.judge.timer--;
+  state.judge.timer = advanceFrameTimer(state.judge.timer, dt);
 
   if (state.gameStatus === 'point-scored') {
-    if (state.judgeTimer > 0) state.judgeTimer -= 1;
+    state.judgeTimer = advanceFrameTimer(state.judgeTimer, dt);
 
     // Reverência pós-ponto em andamento: avança a cerimônia enquanto a luta fica pausada.
     if (state.ceremonyTimer > 0) {
-      if (state.player.stateTimer > 0) state.player.stateTimer--;
-      if (state.opponent.stateTimer > 0) state.opponent.stateTimer--;
-      state.ceremonyTimer--;
+      state.player.stateTimer = advanceFrameTimer(state.player.stateTimer, dt);
+      state.opponent.stateTimer = advanceFrameTimer(state.opponent.stateTimer, dt);
+      state.ceremonyTimer = advanceFrameTimer(state.ceremonyTimer, dt);
 
       if (state.ceremonyTimer <= 0) {
         state.player.state = 'idle';
         state.opponent.state = 'idle';
+        state.player.stateTimer = 0;
+        state.opponent.stateTimer = 0;
         state.gameStatus = 'fighting';
         state.judge = { state: 'hajime', side: null, timer: HAJIME_HOLD };
         state.judgeMessage = 'HAJIME!';
@@ -353,7 +372,7 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
     return state;
   }
 
-  if (state.judgeTimer > 0) state.judgeTimer -= 1;
+  state.judgeTimer = advanceFrameTimer(state.judgeTimer, dt);
 
   // Timer
   state.timeRemaining -= dt / 60;
@@ -368,7 +387,7 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 
   // Hit effect
   if (state.hitEffect) {
-    state.hitEffect.timer -= 1;
+    state.hitEffect.timer = advanceFrameTimer(state.hitEffect.timer, dt);
     if (state.hitEffect.timer <= 0) state.hitEffect = null;
   }
 
@@ -458,9 +477,9 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     if (fighter.blockTimer > PARRY_WINDOW) {
       fighter.stamina = Math.max(0, fighter.stamina - BLOCK_DRAIN);
       if (fighter.stamina <= 0) {
-        fighter.exhausted = 60;
+        fighter.exhausted = EXHAUSTED_DURATION_FRAMES;
         fighter.state = 'hit';
-        fighter.stateTimer = 60;
+        fighter.stateTimer = EXHAUSTED_DURATION_FRAMES;
       }
     }
     // Holding block clears the buffer (player switched to defense)
@@ -592,7 +611,7 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
     // Mostra a defesa correspondente à altura do golpe por alguns frames
     const isHighAttack = attacker.state === 'punch' || attacker.state === 'gyaku-zuki';
     defender.state = isHighAttack ? 'uchi-uke' : 'gedan-barai';
-    defender.stateTimer = 22;
+    defender.stateTimer = PARRY_DEFENSE_DURATION_FRAMES;
     defender.blockTimer = 0;
     // Attacker stunned briefly, exposed to counter
     attacker.state = 'hit';
@@ -609,9 +628,9 @@ function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'playe
     state.hitEffect = { x: (attacker.x + defender.x) / 2, y: GROUND_Y - 60, timer: 10, type: 'punch' };
     defender.stamina = Math.max(0, defender.stamina - 12);
     if (defender.stamina <= 0) {
-      defender.exhausted = 60;
+      defender.exhausted = EXHAUSTED_DURATION_FRAMES;
       defender.state = 'hit';
-      defender.stateTimer = 60;
+      defender.stateTimer = EXHAUSTED_DURATION_FRAMES;
     }
     return;
   }
@@ -991,9 +1010,9 @@ export function updateAI(state: GameState) {
       if (opp.blockTimer > PARRY_WINDOW) {
         opp.stamina = Math.max(0, opp.stamina - BLOCK_DRAIN);
         if (opp.stamina <= 0) {
-          opp.exhausted = 60;
+          opp.exhausted = EXHAUSTED_DURATION_FRAMES;
           opp.state = 'hit';
-          opp.stateTimer = 60;
+          opp.stateTimer = EXHAUSTED_DURATION_FRAMES;
         }
       }
       break;

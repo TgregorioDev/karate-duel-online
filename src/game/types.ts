@@ -117,6 +117,13 @@ export const PUNCH_COST = 18;
 export const KICK_COST = 28;
 export const GYAKU_ZUKI_COST = 24;
 export const MAE_GERI_COST = 26;
+export const PUNCH_DURATION_FRAMES = 12;
+export const KICK_DURATION_FRAMES = 18;
+export const GYAKU_ZUKI_DURATION_FRAMES = 14;
+export const MAE_GERI_DURATION_FRAMES = 16;
+export const HIT_STUN_FRAMES = 20;
+export const PARRY_DEFENSE_DURATION_FRAMES = 22;
+export const EXHAUSTED_DURATION_FRAMES = 60;
 // Tactical timing windows
 export const PARRY_WINDOW = 4;               // frames at start of block where a perfect parry triggers
 export const PARRY_COUNTER_WINDOW = 25;      // frames after a successful parry to land a guaranteed counter

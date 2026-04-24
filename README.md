@@ -1,11 +1,11 @@
 # Karate Duel
 
-Jogo de luta 1x1 em canvas, inspirado em kumite esportivo, construido com `Vite + React + TypeScript`.
-O foco do projeto esta em um duelo arcade de karate com pontuacao por tecnicas, stamina, parry, combos, juiz em tela e IA adaptativa.
+Jogo de luta 1x1 com renderizacao `Three.js`, inspirado em kumite esportivo, construido com `Vite + React + TypeScript`.
+O foco do projeto esta em um duelo arcade de karate com pontuacao por tecnicas, stamina, parry, combos, juiz em cena e IA adaptativa.
 
 ## Visao geral
 
-O projeto roda como uma SPA simples: a rota principal renderiza o componente `KarateGame`, que controla um `canvas` de `960x540`.
+O projeto roda como uma SPA simples: a rota principal renderiza o componente `KarateGame`, que monta a cena Three.js e mantem o HUD em overlay React.
 Todo o loop de jogo e feito em `requestAnimationFrame`, enquanto a logica principal fica desacoplada em arquivos puros de dominio dentro de `src/game`.
 
 Fluxo da aplicacao:
@@ -13,7 +13,7 @@ Fluxo da aplicacao:
 1. `src/pages/Index.tsx` renderiza o jogo.
 2. `src/components/KarateGame.tsx` captura input, inicia a luta e executa o loop.
 3. `src/game/engine.ts` atualiza estado, regras, IA, colisao, pontuacao e cerimonias.
-4. `src/game/renderer.ts` desenha dojo, lutadores, HUD, arbitro, efeitos e telas de menu/fim.
+4. `src/game/ThreeRenderer.ts` adapta o estado da engine para cena, camera, luzes, tatame, lutadores e efeitos 3D.
 5. `src/game/types.ts` centraliza tipos e constantes do jogo.
 
 ## Stack e execucao
@@ -49,10 +49,10 @@ O repositorio tambem possui `bun.lock` e `bun.lockb`, mas o fluxo atualmente tes
 ```text
 src/
   components/
-    KarateGame.tsx       # loop, input de teclado e canvas
+    KarateGame.tsx       # loop, input de teclado, cena 3D e HUD overlay
   game/
     engine.ts            # regras, IA, stamina, score, hit detection, cerimonias
-    renderer.ts          # renderizacao procedural do jogo
+    ThreeRenderer.ts     # adaptador Three.js da cena e dos visuais
     types.ts             # tipos e constantes centrais
   pages/
     Index.tsx            # entrada da tela principal
@@ -228,14 +228,15 @@ Isso cria um ajuste dinamico simples: quanto mais o jogador pontua, mais perigos
 
 ## Renderizacao e apresentacao
 
-Todo o visual e desenhado por codigo no `canvas`; nao ha spritesheet de personagens.
+O estado da luta continua na engine, enquanto o visual principal e adaptado para uma cena Three.js.
 
 Principais elementos renderizados:
 
 - dojo com fundo estilizado
-- arbitro ao fundo
-- lutadores desenhados proceduralmente
-- HUD com placar `AKA` vs `AO`
+- iluminacao e camera 2.5D
+- tatame WKF procedural
+- placeholders ou modelos 3D dos lutadores
+- HUD React com placar `AKA` vs `AO`
 - barra de stamina para ambos
 - cronometro
 - mensagens centrais do arbitro
@@ -247,13 +248,13 @@ O renderer privilegia:
 
 - leitura clara do estado da luta
 - feedback visual de ataque, parry e stamina
-- identidade visual arcade/anime
+- leitura espacial clara para luta 2.5D
 
 ## Arquitetura tecnica
 
 ### Pontos fortes
 
-- Separacao boa entre input/loop (`KarateGame`), regra (`engine`) e desenho (`renderer`)
+- Separacao boa entre input/loop (`KarateGame`), regra (`engine`) e adaptador visual (`ThreeRenderer`)
 - Regras principais modeladas em funcoes puras ou quase puras, o que facilita teste
 - Constantes do jogo centralizadas em `types.ts`
 - Testes cobrindo partes criticas de pontuacao e heuristicas da IA
@@ -261,7 +262,7 @@ O renderer privilegia:
 
 ### Pontos de atencao
 
-- O estado do jogo e mutado in-place em `engine.ts`, o que funciona para canvas arcade, mas dificulta evolucao para replay, rollback ou sincronizacao online
+- O estado do jogo e mutado in-place em `engine.ts`, o que funciona para o prototipo arcade, mas dificulta evolucao para replay, rollback ou sincronizacao online
 - A IA usa estado global de modulo (`aiAction`, `aiActionTimer`, `aiComboNext`), o que acopla a simulacao a uma unica luta por vez
 - O input buffer tambem e global ao modulo, o que reduz reusabilidade do motor
 - A cobertura automatizada atual nao cobre renderizacao, input de teclado nem fluxo completo de partida
@@ -307,6 +308,6 @@ Observacao:
 
 ## Resumo
 
-`Karate Duel` e um projeto de jogo arcade bem organizado para prototipacao rapida: a base de combate esta funcional, a IA responde a contexto, a pontuacao segue um conjunto coerente de regras e a separacao entre motor e renderer e suficiente para evolucao local.
+`Karate Duel` e um projeto de jogo arcade bem organizado para prototipacao rapida: a base de combate esta funcional, a IA responde a contexto, a pontuacao segue um conjunto coerente de regras e a separacao entre motor e adaptador visual e suficiente para evolucao local.
 
 Ao mesmo tempo, ainda e um projeto de escopo pequeno, com espaco claro para amadurecer em tres frentes: testes de integracao, isolamento do estado do motor e limpeza da infraestrutura herdada do template front-end.
