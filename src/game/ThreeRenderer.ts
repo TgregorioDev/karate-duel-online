@@ -1,18 +1,17 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
+import { getAkaFacingRotationY, getPreferredAkaSourceClipIndex } from "@/game/akaAnimationUtils";
 import type { Fighter, FighterState, GameState, ScoreCall } from "@/game/types";
 import {
   CANVAS_WIDTH,
-  FIGHTER_HEIGHT,
-  GROUND_Y,
   HIT_STUN_FRAMES,
   KICK_DURATION_FRAMES,
   MAE_GERI_DURATION_FRAMES,
   PARRY_DEFENSE_DURATION_FRAMES,
   PUNCH_DURATION_FRAMES,
   GYAKU_ZUKI_DURATION_FRAMES,
+  GROUND_Y,
 } from "@/game/types";
 
 type ScoreEffect = {
@@ -27,51 +26,135 @@ type BurstParticle = {
   life: number;
 };
 
-type FighterAsset = {
-  scene: THREE.Group;
-  clips: THREE.AnimationClip[];
+type MasterSkeletonBinding = {
+  rootObject: THREE.Object3D;
+  boneNames: Set<string>;
+  boneNameByCanonical: Map<string, string>;
+  rootScaleByBoneName: Map<string, THREE.Vector3>;
+};
+
+export type ThreeRendererLoadState = {
+  ready: boolean;
+  failed: boolean;
+  loaded: number;
+  total: number;
+  progress: number;
+  label: string;
+};
+
+export type ThreeRendererOptions = {
+  onAkaLoadStateChange?: (state: ThreeRendererLoadState) => void;
+  onAkaReady?: () => void;
+  onAkaAttackDurationsResolved?: (durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>>) => void;
+  onAkaAttackAnimationComplete?: (animation: "punch" | "gyaku-zuki" | "kick" | "mae-geri") => void;
+};
+
+type FighterVisualAdapter = {
+  root: THREE.Group;
+  isReady: () => boolean;
+  update: (fighter: Fighter, dtSeconds: number, gameState: GameState) => void;
+  dispose: () => void;
+};
+
+type AkaClipKey =
+  | "bow"
+  | "idle"
+  | "walk"
+  | "kizami_tsuki"
+  | "gyaku_zuki"
+  | "mae_geri"
+  | "mawashi_geri"
+  | "block_high"
+  | "block_low";
+
+type AttackActionKey = "kizami_tsuki" | "gyaku_zuki" | "mae_geri" | "mawashi_geri";
+type AttackEngineKey = "punch" | "gyaku-zuki" | "mae-geri" | "kick";
+type AkaClipDefinition = {
+  actionName: string;
+  fileName: string;
+  loop: boolean;
+  attackEngineKey?: AttackEngineKey;
+  targetFrames?: number;
 };
 
 const WORLD_WIDTH = 12;
 const WORLD_HEIGHT_SCALE = 0.02;
 const WORLD_HALF_WIDTH = WORLD_WIDTH / 2;
+const FIGHTER_LANE_Z = 0;
 const CAMERA_HEIGHT = 4.6;
 const CAMERA_Z = 7.4;
 const LOOK_Y = 1.65;
-const DEFAULT_FIGHTER_MODEL_URL = "/models/karate-fighter.glb";
+const FIGHTER_TARGET_HEIGHT = 1.8;
+const DEFAULT_BLEND_SECONDS = 0.2;
+const COMBO_BLEND_SECONDS = 0.12;
+const AKA_ASSET_BASE = "/models/fighters/aka/animations";
+const AKA_CLIP_DEFINITIONS: Record<AkaClipKey, AkaClipDefinition> = {
+  bow: {
+    actionName: "bow_in",
+    fileName: "reference.glb",
+    loop: false,
+  },
+  idle: {
+    actionName: "idle",
+    fileName: "stance.glb",
+    loop: true,
+  },
+  walk: {
+    actionName: "walk",
+    fileName: "walk.glb",
+    loop: true,
+  },
+  kizami_tsuki: {
+    actionName: "kizami_tsuki",
+    fileName: "kizame.glb",
+    loop: false,
+    attackEngineKey: "punch",
+    targetFrames: PUNCH_DURATION_FRAMES,
+  },
+  gyaku_zuki: {
+    actionName: "gyaku_zuki",
+    fileName: "gyaku.glb",
+    loop: false,
+    attackEngineKey: "gyaku-zuki",
+    targetFrames: GYAKU_ZUKI_DURATION_FRAMES,
+  },
+  mae_geri: {
+    actionName: "mae_geri",
+    fileName: "mae-geri.glb",
+    loop: false,
+    attackEngineKey: "mae-geri",
+    targetFrames: MAE_GERI_DURATION_FRAMES,
+  },
+  mawashi_geri: {
+    actionName: "mawashi_geri",
+    fileName: "mawashi-geri.glb",
+    loop: false,
+    attackEngineKey: "kick",
+    targetFrames: KICK_DURATION_FRAMES,
+  },
+  block_high: {
+    actionName: "block_high",
+    fileName: "uchi-uke.glb",
+    loop: false,
+    targetFrames: PARRY_DEFENSE_DURATION_FRAMES,
+  },
+  block_low: {
+    actionName: "block_low",
+    fileName: "gedan-barai.glb",
+    loop: false,
+    targetFrames: PARRY_DEFENSE_DURATION_FRAMES,
+  },
+};
+const AKA_CLIP_KEYS = Object.keys(AKA_CLIP_DEFINITIONS) as AkaClipKey[];
+const ATTACK_CLIP_KEY_LIST = AKA_CLIP_KEYS.filter((clipKey) => AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey) as AttackActionKey[];
+const ATTACK_CLIP_KEYS = new Set<AkaClipKey>(ATTACK_CLIP_KEY_LIST);
+const ONE_SHOT_KEYS = new Set<AkaClipKey>(AKA_CLIP_KEYS.filter((clipKey) => AKA_CLIP_DEFINITIONS[clipKey].loop === false));
 
 const SCORE_COLORS: Record<ScoreCall, string> = {
   YUKO: "#f6f3cf",
   "WAZA-ARI": "#ffd166",
   IPPON: "#ff5d5d",
 };
-
-const ANIMATION_TRACKS = {
-  idle: ["idle"],
-  kizami_tsuki: ["kizami_tsuki", "kizami-tsuki", "punch"],
-  gyaku_zuki: ["gyaku_zuki", "gyaku-zuki"],
-  mae_geri: ["mae_geri", "mae-geri"],
-  kick_ippon: ["kick_ippon", "kick-ippon", "kick"],
-  block: ["block"],
-  hit: ["hit"],
-  uchi_uke: ["uchi_uke", "uchi-uke"],
-  gedan_barai: ["gedan_barai", "gedan-barai"],
-  exhausted: ["exhausted"],
-} as const;
-
-const TARGET_ANIMATION_FRAMES: Partial<Record<FighterState, number>> = {
-  punch: PUNCH_DURATION_FRAMES,
-  kick: KICK_DURATION_FRAMES,
-  "gyaku-zuki": GYAKU_ZUKI_DURATION_FRAMES,
-  "mae-geri": MAE_GERI_DURATION_FRAMES,
-  hit: HIT_STUN_FRAMES,
-  "uchi-uke": PARRY_DEFENSE_DURATION_FRAMES,
-  "gedan-barai": PARRY_DEFENSE_DURATION_FRAMES,
-};
-
-function normalizeClipName(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, "_");
-}
 
 function toWorldX(engineX: number) {
   return (engineX / CANVAS_WIDTH) * WORLD_WIDTH - WORLD_HALF_WIDTH;
@@ -165,6 +248,82 @@ function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   material.dispose();
 }
 
+function disposeMaterialTextures(material: THREE.Material | THREE.Material[]) {
+  const disposeSingle = (entry: THREE.Material) => {
+    Object.values(entry).forEach((value) => {
+      if (value instanceof THREE.Texture) {
+        value.dispose();
+      }
+    });
+    entry.dispose();
+  };
+
+  if (Array.isArray(material)) {
+    material.forEach(disposeSingle);
+    return;
+  }
+
+  disposeSingle(material);
+}
+
+function disposeObjectResources(root: THREE.Object3D) {
+  root.traverse((child) => {
+    if (child instanceof THREE.SkinnedMesh) {
+      child.skeleton.dispose();
+    }
+
+    if (child instanceof THREE.Mesh) {
+      child.geometry.dispose();
+      disposeMaterialTextures(child.material);
+    }
+  });
+}
+
+function canonicalizeBoneName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/^mixamorig/, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function splitTrackBinding(trackName: string) {
+  const propertyIndex = trackName.lastIndexOf(".");
+  if (propertyIndex < 0) {
+    return {
+      targetPath: trackName,
+      property: "",
+    };
+  }
+
+  return {
+    targetPath: trackName.slice(0, propertyIndex),
+    property: trackName.slice(propertyIndex + 1),
+  };
+}
+
+function extractTrackTargetCandidates(targetPath: string) {
+  const sanitizedPath = targetPath.replace(/\[[^\]]*\]/g, "");
+  const rawSegments = sanitizedPath.split(/[|/]/).filter(Boolean);
+  const candidates: string[] = [];
+
+  rawSegments.forEach((segment) => {
+    const namespaceFree = segment.replace(/^.*:/, "");
+    if (namespaceFree) {
+      candidates.push(namespaceFree);
+    }
+
+    const dottedSegments = namespaceFree.split(".").filter(Boolean);
+    for (let index = dottedSegments.length - 1; index >= 0; index -= 1) {
+      const candidate = dottedSegments.slice(index).join(".");
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    }
+  });
+
+  return [...new Set(candidates.reverse())];
+}
+
 function applyShadowSetup(root: THREE.Object3D) {
   root.traverse((child) => {
     if (child instanceof THREE.Mesh) {
@@ -174,81 +333,84 @@ function applyShadowSetup(root: THREE.Object3D) {
   });
 }
 
-class FighterVisual {
-  private static assetPromise: Promise<FighterAsset | null> | null = null;
-  private static assetWarningShown = false;
+function isAttackState(state: FighterState) {
+  return state === "punch" || state === "gyaku-zuki" || state === "kick" || state === "mae-geri";
+}
 
+abstract class BaseFighterVisual implements FighterVisualAdapter {
   readonly root = new THREE.Group();
 
-  private readonly modelRoot = new THREE.Group();
-  private readonly placeholder = new THREE.Group();
-  private readonly labelAnchor = new THREE.Group();
-  private readonly labelSprite: THREE.Sprite;
-  private readonly actionMap = new Map<string, THREE.AnimationAction>();
-  private mixer: THREE.AnimationMixer | null = null;
-  private currentActionName = "";
-  private lastFighterState: FighterState | null = null;
+  protected readonly labelAnchor = new THREE.Group();
+  protected readonly labelSprite: THREE.Sprite;
 
   constructor(
-    private readonly options: {
-      bodyColor: string;
-      accentColor: string;
-      beltColor: string;
-      label: string;
-      depthOffset: number;
-      fighterModelUrl?: string | null;
-    },
+    label: string,
+    accentColor: string,
+    protected readonly depthOffset: number,
   ) {
-    this.root.add(this.modelRoot);
-    this.root.add(this.placeholder);
-    this.root.add(this.labelAnchor);
-    this.root.position.y = (FIGHTER_HEIGHT * WORLD_HEIGHT_SCALE) / 2;
-    this.labelSprite = createTextSprite(this.options.label, "#f8fafc", {
+    this.labelSprite = createTextSprite(label, "#f8fafc", {
       background: "rgba(9, 18, 28, 0.72)",
-      borderColor: this.options.accentColor,
+      borderColor: accentColor,
       fontSize: 84,
       scale: new THREE.Vector2(2.45, 0.98),
     });
     this.labelAnchor.position.set(0, 3.02, 0);
     this.labelAnchor.add(this.labelSprite);
-    this.buildPlaceholder();
-    this.loadModel();
+    this.root.add(this.labelAnchor);
   }
 
-  private static async loadSharedAsset(modelUrl: string) {
-    if (!this.assetPromise) {
-      const loader = new GLTFLoader();
-      this.assetPromise = loader
-        .loadAsync(modelUrl)
-        .then((gltf) => ({
-          scene: gltf.scene,
-          clips: gltf.animations,
-        }))
-        .catch((error) => {
-          if (!this.assetWarningShown) {
-            console.warn(`ThreeRenderer: failed to load fighter GLB at ${modelUrl}. Using placeholders.`, error);
-            this.assetWarningShown = true;
-          }
-          return null;
-        });
+  protected updateTransform(fighter: Fighter) {
+    this.root.position.x = toWorldX(fighter.x);
+    this.root.position.y = 0;
+    this.root.position.z = this.depthOffset;
+    this.root.rotation.y = fighter.facing === "right" ? -Math.PI / 2 : Math.PI / 2;
+  }
+
+  isReady() {
+    return true;
+  }
+
+  abstract update(fighter: Fighter, dtSeconds: number, gameState: GameState): void;
+
+  dispose() {
+    if (this.labelSprite.material instanceof THREE.SpriteMaterial) {
+      this.labelSprite.material.map?.dispose();
+      this.labelSprite.material.dispose();
     }
-    return this.assetPromise;
+    this.root.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        disposeMaterial(child.material);
+      }
+    });
   }
+}
 
-  private buildPlaceholder() {
+class PlaceholderFighterVisual extends BaseFighterVisual {
+  private readonly placeholder = new THREE.Group();
+
+  constructor(options: {
+    label: string;
+    accentColor: string;
+    beltColor: string;
+    bodyColor: string;
+    depthOffset: number;
+  }) {
+    super(options.label, options.accentColor, options.depthOffset);
+
     const giMaterial = new THREE.MeshStandardMaterial({
-      color: this.options.bodyColor,
+      color: options.bodyColor,
       roughness: 0.78,
       metalness: 0.04,
     });
     const accentMaterial = new THREE.MeshStandardMaterial({
-      color: this.options.accentColor,
+      color: options.accentColor,
       roughness: 0.65,
       metalness: 0.08,
-      emissive: new THREE.Color(this.options.accentColor).multiplyScalar(0.06),
+      emissive: new THREE.Color(options.accentColor).multiplyScalar(0.06),
     });
     const beltMaterial = new THREE.MeshStandardMaterial({
-      color: this.options.beltColor,
+      color: options.beltColor,
       roughness: 0.72,
       metalness: 0.05,
     });
@@ -275,89 +437,12 @@ class FighterVisual {
 
     this.placeholder.add(body, head, belt, gloveLeft, gloveRight, footLeft, footRight);
     applyShadowSetup(this.placeholder);
+    this.root.add(this.placeholder);
   }
 
-  private async loadModel() {
-    const modelUrl = this.options.fighterModelUrl ?? DEFAULT_FIGHTER_MODEL_URL;
-    const asset = await FighterVisual.loadSharedAsset(modelUrl);
-    if (!asset) return;
+  update(fighter: Fighter, dtSeconds: number) {
+    this.updateTransform(fighter);
 
-    const model = clone(asset.scene) as THREE.Group;
-    applyShadowSetup(model);
-
-    this.modelRoot.add(model);
-    this.placeholder.visible = false;
-    this.mixer = new THREE.AnimationMixer(model);
-
-    asset.clips.forEach((clip) => {
-      this.actionMap.set(normalizeClipName(clip.name), this.mixer!.clipAction(clip));
-    });
-    this.playAnimation("idle", 0.01);
-  }
-
-  private findAction(trackName: keyof typeof ANIMATION_TRACKS) {
-    const aliases = ANIMATION_TRACKS[trackName];
-    for (const alias of aliases) {
-      const action = this.actionMap.get(normalizeClipName(alias));
-      if (action) return action;
-    }
-    return null;
-  }
-
-  private getAnimationKey(state: FighterState, exhausted: boolean): keyof typeof ANIMATION_TRACKS {
-    if (exhausted) return "exhausted";
-    switch (state) {
-      case "punch":
-        return "kizami_tsuki";
-      case "gyaku-zuki":
-        return "gyaku_zuki";
-      case "mae-geri":
-        return "mae_geri";
-      case "kick":
-        return "kick_ippon";
-      case "block":
-        return "block";
-      case "hit":
-        return "hit";
-      case "uchi-uke":
-        return "uchi_uke";
-      case "gedan-barai":
-        return "gedan_barai";
-      default:
-        return "idle";
-    }
-  }
-
-  private getAnimationTimeScale(state: FighterState, action: THREE.AnimationAction) {
-    const clip = action.getClip();
-    const targetFrames = TARGET_ANIMATION_FRAMES[state];
-    if (!targetFrames || clip.duration <= 0) return 1;
-    return clip.duration / (targetFrames / 60);
-  }
-
-  private playAnimation(trackName: keyof typeof ANIMATION_TRACKS, fadeDuration: number, state?: FighterState) {
-    const next = this.findAction(trackName);
-    if (!next) return;
-    if (this.currentActionName === trackName) {
-      if (state) next.timeScale = this.getAnimationTimeScale(state, next);
-      return;
-    }
-
-    next.reset();
-    next.enabled = true;
-    next.clampWhenFinished = trackName !== "idle" && trackName !== "block";
-    next.setLoop(trackName === "idle" || trackName === "block" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-    next.fadeIn(fadeDuration).play();
-    next.timeScale = state ? this.getAnimationTimeScale(state, next) : 1;
-
-    if (this.currentActionName) {
-      const previous = this.findAction(this.currentActionName as keyof typeof ANIMATION_TRACKS);
-      previous?.fadeOut(fadeDuration);
-    }
-    this.currentActionName = trackName;
-  }
-
-  private animatePlaceholder(fighter: Fighter, dtSeconds: number) {
     const moving = fighter.state === "walk-forward" || fighter.state === "walk-backward";
     const bobSpeed = moving ? 8 : 2.4;
     const bobAmount = moving ? 0.05 : 0.02;
@@ -371,52 +456,496 @@ class FighterVisual {
     if (fighter.state === "hit") targetPitch = 0.35;
     this.placeholder.rotation.z = THREE.MathUtils.damp(this.placeholder.rotation.z, targetPitch, 10, dtSeconds);
 
-    const targetYaw = fighter.facing === "right" ? -Math.PI / 2 : Math.PI / 2;
-    this.root.rotation.y = THREE.MathUtils.damp(this.root.rotation.y, targetYaw, 10, dtSeconds);
-
     const attackStretch =
       fighter.state === "punch" || fighter.state === "gyaku-zuki" || fighter.state === "kick" || fighter.state === "mae-geri"
         ? 1.1
         : 1;
     this.placeholder.scale.x = THREE.MathUtils.damp(this.placeholder.scale.x, attackStretch, 8, dtSeconds);
   }
+}
 
-  update(fighter: Fighter, dtSeconds: number) {
-    this.root.position.x = THREE.MathUtils.damp(this.root.position.x, toWorldX(fighter.x), 14, dtSeconds);
-    this.root.position.z = this.options.depthOffset;
-    this.root.position.y = (FIGHTER_HEIGHT * WORLD_HEIGHT_SCALE) / 2;
+class AkaAnimatedFighterVisual extends BaseFighterVisual {
+  private readonly modelRoot = new THREE.Group();
+  private readonly fallback = new THREE.Group();
+  private readonly actions = new Map<AkaClipKey, THREE.AnimationAction>();
+  private readonly actionKeys = new Map<THREE.AnimationAction, AkaClipKey>();
+  private readonly loadingState: ThreeRendererLoadState = {
+    ready: false,
+    failed: false,
+    loaded: 0,
+    total: AKA_CLIP_KEYS.length,
+    progress: 0,
+    label: "Carregando modelo AKA...",
+  };
 
-    if (this.mixer) {
-      const animationKey = this.getAnimationKey(fighter.state, fighter.exhausted > 0);
-      if (fighter.state !== this.lastFighterState || animationKey !== (this.currentActionName as keyof typeof ANIMATION_TRACKS)) {
-        this.playAnimation(animationKey, 0.08, fighter.state);
-      } else if (TARGET_ANIMATION_FRAMES[fighter.state]) {
-        const action = this.findAction(animationKey);
-        if (action) action.timeScale = this.getAnimationTimeScale(fighter.state, action);
-      }
+  private mixer: THREE.AnimationMixer | null = null;
+  private ready = false;
+  private activeAction: THREE.AnimationAction | null = null;
+  private activeKey: AkaClipKey | null = null;
+  private lastMovementState: FighterState | null = null;
+  private lastFacing: Fighter["facing"] | null = null;
+  private lastStateTimer = 0;
+  private requestReturnToStance = false;
+  private masterBinding: MasterSkeletonBinding | null = null;
 
-      const targetYaw = fighter.facing === "right" ? -Math.PI / 2 : Math.PI / 2;
-      this.root.rotation.y = THREE.MathUtils.damp(this.root.rotation.y, targetYaw, 10, dtSeconds);
-      this.mixer.update(dtSeconds);
-    } else {
-      this.animatePlaceholder(fighter, dtSeconds);
-    }
-
-    this.lastFighterState = fighter.state;
+  constructor(
+    private readonly options: {
+      depthOffset: number;
+      onLoadStateChange?: (state: ThreeRendererLoadState) => void;
+      onReady?: () => void;
+      onAttackDurationsResolved?: (durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>>) => void;
+      onAttackFinished?: (animation: "punch" | "gyaku-zuki" | "kick" | "mae-geri") => void;
+    },
+  ) {
+    super("AKA", "#d4202a", options.depthOffset);
+    this.root.add(this.modelRoot);
+    this.root.add(this.fallback);
+    this.buildFallback();
+    this.emitLoadState();
+    void this.loadAssets();
   }
 
-  dispose() {
-    this.mixer?.stopAllAction();
-    if (this.labelSprite.material instanceof THREE.SpriteMaterial) {
-      this.labelSprite.material.map?.dispose();
-      this.labelSprite.material.dispose();
+  override isReady() {
+    return this.ready;
+  }
+
+  private emitLoadState(overrides?: Partial<ThreeRendererLoadState>) {
+    Object.assign(this.loadingState, overrides);
+    this.options.onLoadStateChange?.({ ...this.loadingState });
+  }
+
+  private buildFallback() {
+    const giMaterial = new THREE.MeshStandardMaterial({
+      color: "#f9fafb",
+      roughness: 0.78,
+      metalness: 0.04,
+    });
+    const accentMaterial = new THREE.MeshStandardMaterial({
+      color: "#d4202a",
+      roughness: 0.65,
+      metalness: 0.08,
+      emissive: new THREE.Color("#d4202a").multiplyScalar(0.06),
+    });
+    const beltMaterial = new THREE.MeshStandardMaterial({
+      color: "#d4202a",
+      roughness: 0.72,
+      metalness: 0.05,
+    });
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: "#dcb79c",
+      roughness: 0.9,
+      metalness: 0,
+    });
+
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 1.12, 6, 12), giMaterial);
+    body.position.y = 1.2;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), skinMaterial);
+    head.position.y = 2.15;
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.46), beltMaterial);
+    belt.position.y = 1.14;
+    const gloveLeft = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), accentMaterial);
+    const gloveRight = gloveLeft.clone();
+    gloveLeft.position.set(-0.42, 1.36, 0.1);
+    gloveRight.position.set(0.42, 1.36, 0.1);
+
+    this.fallback.add(body, head, belt, gloveLeft, gloveRight);
+    applyShadowSetup(this.fallback);
+  }
+
+  private async loadAssets() {
+    const manager = new THREE.LoadingManager();
+    manager.onStart = () => {
+      this.emitLoadState({
+        ready: false,
+        failed: false,
+        loaded: 0,
+        total: AKA_CLIP_KEYS.length,
+        progress: 0,
+        label: "Carregando modelo AKA...",
+      });
+    };
+    manager.onProgress = (_url, loaded, total) => {
+      this.emitLoadState({
+        loaded,
+        total,
+        progress: total > 0 ? loaded / total : 0,
+        label: `Carregando assets AKA (${loaded}/${total})`,
+      });
+    };
+    manager.onError = (url) => {
+      this.emitLoadState({
+        failed: true,
+        label: `Falha ao carregar asset: ${url}`,
+      });
+    };
+
+    const loader = new GLTFLoader(manager);
+
+    try {
+      const reference = await loader.loadAsync(`${AKA_ASSET_BASE}/${AKA_CLIP_DEFINITIONS.bow.fileName}`);
+
+      const rootMotionTargets = this.collectRootMotionTargets(reference.scene);
+      const model = reference.scene;
+      applyShadowSetup(model);
+      this.fitModelToScene(model);
+      this.modelRoot.add(model);
+      this.fallback.visible = false;
+      this.masterBinding = this.createMasterBinding(model);
+
+      this.mixer = new THREE.AnimationMixer(model);
+      this.mixer.addEventListener("finished", this.handleMixerFinished as THREE.EventListener);
+
+      const bowClip = this.extractClip(reference.animations, "bow", rootMotionTargets);
+      this.registerAction("bow", bowClip);
+
+      const secondaryEntries = (Object.entries(AKA_CLIP_DEFINITIONS) as [AkaClipKey, AkaClipDefinition][])
+        .filter(([clipKey]) => clipKey !== "bow");
+
+      const extractedClips = await Promise.all(
+        secondaryEntries.map(async ([clipKey, definition]) => {
+          let clip: THREE.AnimationClip | null = null;
+          const gltf = await loader.loadAsync(`${AKA_ASSET_BASE}/${definition.fileName}`);
+          try {
+            clip = this.extractClip(gltf.animations, clipKey, rootMotionTargets);
+            if (clip) {
+              console.log(`Clip extraido do arquivo [${definition.fileName}] e mapeado para a acao [${definition.actionName}] com sucesso.`);
+            }
+            return [clipKey, clip] as const;
+          } finally {
+            disposeObjectResources(gltf.scene);
+            gltf.scene.clear();
+            if (clip) {
+              console.log(`[Asset System] Clip [${clipKey}] vinculado ao esqueleto Master. Memória de pipeline limpa.`);
+            }
+          }
+        }),
+      );
+
+      for (const [clipKey, clip] of extractedClips) {
+        this.registerAction(clipKey, clip);
+      }
+
+      this.options.onAttackDurationsResolved?.(this.resolveAttackDurations());
+
+      this.ready = true;
+      this.emitLoadState({
+        ready: true,
+        failed: false,
+        loaded: this.loadingState.total,
+        progress: 1,
+        label: "Assets AKA carregados",
+      });
+      this.options.onReady?.();
+      this.playClip("idle", null, 0.01, true);
+    } catch (error) {
+      console.error("ThreeRenderer: failed to initialize AKA assets.", error);
+      this.ready = false;
+      this.emitLoadState({
+        ready: false,
+        failed: true,
+        label: "Falha ao carregar assets AKA",
+      });
     }
-    this.root.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-        disposeMaterial(child.material);
+  }
+
+  private collectRootMotionTargets(scene: THREE.Group) {
+    const targets = new Set<string>();
+    scene.children.forEach((child) => {
+      if (child.name) targets.add(child.name);
+    });
+    scene.traverse((object) => {
+      if (!(object instanceof THREE.Bone)) return;
+      const lower = object.name.toLowerCase();
+      if (/hips|pelvis|root|armature/.test(lower)) {
+        targets.add(object.name);
       }
     });
+    return targets;
+  }
+
+  private createMasterBinding(rootObject: THREE.Object3D): MasterSkeletonBinding {
+    const boneNames = new Set<string>();
+    const boneNameByCanonical = new Map<string, string>();
+    const rootScaleByBoneName = new Map<string, THREE.Vector3>();
+
+    rootObject.traverse((object) => {
+      if (!(object instanceof THREE.Bone)) return;
+
+      boneNames.add(object.name);
+      rootScaleByBoneName.set(object.name, object.scale.clone());
+
+      const canonicalName = canonicalizeBoneName(object.name);
+      if (!boneNameByCanonical.has(canonicalName)) {
+        boneNameByCanonical.set(canonicalName, object.name);
+      }
+    });
+
+    return {
+      rootObject,
+      boneNames,
+      boneNameByCanonical,
+      rootScaleByBoneName,
+    };
+  }
+
+  private extractClip(
+    animations: THREE.AnimationClip[],
+    clipKey: AkaClipKey,
+    rootMotionTargets: Set<string>,
+  ) {
+    if (!this.masterBinding) return null;
+
+    const sourceIndex = getPreferredAkaSourceClipIndex(animations);
+    const source = sourceIndex >= 0 ? animations[sourceIndex] : null;
+    if (!source) return null;
+
+    const missingBones = new Set<string>();
+    const filteredTracks = source.tracks.flatMap((track) => {
+      const remappedTrack = this.remapTrackToMaster(track, rootMotionTargets, missingBones);
+      return remappedTrack ? [remappedTrack] : [];
+    });
+
+    if (filteredTracks.length === 0) {
+      console.error(
+        `[Asset System] Clip [${clipKey}] nao encontrou ossos compativeis no esqueleto Master. Ossos ausentes: ${[...missingBones].join(", ") || "nenhum track valido"}.`,
+      );
+      return null;
+    }
+
+    if (missingBones.size > 0) {
+      console.error(
+        `[Asset System] Clip [${clipKey}] carregado com tracks ignoradas. Ossos ausentes: ${[...missingBones].join(", ")}.`,
+      );
+    }
+
+    return new THREE.AnimationClip(AKA_CLIP_DEFINITIONS[clipKey].actionName, source.duration, filteredTracks);
+  }
+
+  private remapTrackToMaster(
+    sourceTrack: THREE.KeyframeTrack,
+    rootMotionTargets: Set<string>,
+    missingBones: Set<string>,
+  ) {
+    if (!this.masterBinding) return null;
+
+    const clonedTrack = sourceTrack.clone();
+    const { targetPath, property } = splitTrackBinding(clonedTrack.name);
+    const sourceBoneCandidates = extractTrackTargetCandidates(targetPath);
+    const resolvedBoneName = sourceBoneCandidates.find((candidate) => {
+      if (this.masterBinding?.boneNames.has(candidate)) {
+        return true;
+      }
+      const canonicalCandidate = canonicalizeBoneName(candidate);
+      return this.masterBinding?.boneNameByCanonical.has(canonicalCandidate);
+    });
+    const mappedBoneName = resolvedBoneName
+      ? (this.masterBinding.boneNames.has(resolvedBoneName)
+        ? resolvedBoneName
+        : this.masterBinding.boneNameByCanonical.get(canonicalizeBoneName(resolvedBoneName)))
+      : null;
+
+    if (!mappedBoneName || !property) {
+      missingBones.add(sourceBoneCandidates[0] || clonedTrack.name);
+      return null;
+    }
+
+    clonedTrack.name = `${mappedBoneName}.${property}`;
+
+    if (property === "scale" && rootMotionTargets.has(mappedBoneName)) {
+      const masterScale = this.masterBinding.rootScaleByBoneName.get(mappedBoneName);
+      if (masterScale && "values" in clonedTrack && Array.isArray(clonedTrack.values) === false) {
+        for (let i = 0; i < clonedTrack.values.length; i += 3) {
+          clonedTrack.values[i] = masterScale.x;
+          clonedTrack.values[i + 1] = masterScale.y;
+          clonedTrack.values[i + 2] = masterScale.z;
+        }
+      }
+    }
+
+    if (this.isRootMotionTrack(clonedTrack.name, rootMotionTargets)) {
+      return null;
+    }
+
+    return clonedTrack;
+  }
+
+  private registerAction(clipKey: AkaClipKey, clip: THREE.AnimationClip | null) {
+    if (!clip || !this.mixer || !this.masterBinding) return;
+
+    const action = this.mixer.clipAction(clip, this.masterBinding.rootObject);
+    action.enabled = true;
+    action.setEffectiveWeight(1);
+    action.paused = false;
+    action.clampWhenFinished = ONE_SHOT_KEYS.has(clipKey);
+    action.setLoop(ONE_SHOT_KEYS.has(clipKey) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+    this.actions.set(clipKey, action);
+    this.actionKeys.set(action, clipKey);
+  }
+
+  private isRootMotionTrack(trackName: string, rootMotionTargets: Set<string>) {
+    if (!trackName.endsWith(".position")) return false;
+    const nodeName = trackName.split(".")[0] ?? "";
+    const lower = nodeName.toLowerCase();
+    return rootMotionTargets.has(nodeName) || /armature|root|hips|pelvis/.test(lower);
+  }
+
+  private fitModelToScene(model: THREE.Group) {
+    const initialBounds = new THREE.Box3().setFromObject(model);
+    const initialHeight = initialBounds.max.y - initialBounds.min.y;
+    if (initialHeight > 0) {
+      const scale = FIGHTER_TARGET_HEIGHT / initialHeight;
+      model.scale.setScalar(scale);
+    }
+
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    model.position.y = -scaledBounds.min.y;
+  }
+
+  private resolveClipKey(fighter: Fighter) {
+    if (fighter.state === "bow") return "bow";
+    if (fighter.state === "walk-forward" || fighter.state === "walk-backward") return "walk";
+    if (fighter.state === "punch") return "kizami_tsuki";
+    if (fighter.state === "gyaku-zuki") return "gyaku_zuki";
+    if (fighter.state === "kick") return "mawashi_geri";
+    if (fighter.state === "mae-geri") return "mae_geri";
+    if (fighter.state === "uchi-uke") return "block_high";
+    if (fighter.state === "gedan-barai") return "block_low";
+    return "idle";
+  }
+
+  private getActionTimeScale(clipKey: AkaClipKey, fighter: Fighter, action: THREE.AnimationAction) {
+    if (clipKey === "walk") {
+      return fighter.state === "walk-backward" ? -1 : 1;
+    }
+
+    const targetFrames = AKA_CLIP_DEFINITIONS[clipKey].targetFrames;
+    if (!targetFrames || action.getClip().duration <= 0) return 1;
+    return 1;
+  }
+
+  private resolveAttackDurations() {
+    const entries = ATTACK_CLIP_KEY_LIST;
+    const durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>> = {};
+
+    entries.forEach((clipKey) => {
+      const action = this.actions.get(clipKey);
+      const clipDuration = action?.getClip().duration ?? 0;
+      const engineKey = AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey;
+      if (clipDuration > 0 && engineKey) {
+        durations[engineKey] = Math.max(1, Math.round(clipDuration * 60));
+      }
+    });
+
+    return durations;
+  }
+
+  private configureAction(action: THREE.AnimationAction, clipKey: AkaClipKey, fighter: Fighter | null, reset = false) {
+    const directionTimeScale = fighter ? this.getActionTimeScale(clipKey, fighter, action) : 1;
+    if (reset) {
+      action.stop();
+      action.reset();
+      if (directionTimeScale < 0) {
+        action.time = action.getClip().duration;
+      }
+    }
+    action.timeScale = directionTimeScale;
+    action.paused = false;
+  }
+
+  private playClip(clipKey: AkaClipKey, fighter: Fighter | null, fadeSeconds = DEFAULT_BLEND_SECONDS, force = false) {
+    const nextAction = this.actions.get(clipKey);
+    if (!nextAction) return;
+
+    if (this.activeKey === clipKey && this.activeAction === nextAction && !force) {
+      this.configureAction(nextAction, clipKey, fighter, false);
+      return;
+    }
+
+    const previousAction = this.activeAction;
+    this.configureAction(nextAction, clipKey, fighter, true);
+    nextAction.clampWhenFinished = ONE_SHOT_KEYS.has(clipKey);
+    nextAction.setLoop(ONE_SHOT_KEYS.has(clipKey) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+    nextAction.enabled = true;
+    nextAction.play();
+
+    if (previousAction && previousAction !== nextAction) {
+      previousAction.crossFadeTo(nextAction, fadeSeconds, false);
+      nextAction.crossFadeFrom(previousAction, fadeSeconds, false);
+      previousAction.fadeOut(fadeSeconds);
+    } else if (previousAction === nextAction && force) {
+      nextAction.fadeIn(Math.min(fadeSeconds, 0.05));
+    } else if (!previousAction) {
+      nextAction.fadeIn(Math.min(fadeSeconds, 0.05));
+    }
+
+    this.activeAction = nextAction;
+    this.activeKey = clipKey;
+  }
+
+  private handleMixerFinished = (event: THREE.Event) => {
+    const action = (event as { action?: THREE.AnimationAction }).action;
+    if (!action) return;
+    const clipKey = this.actionKeys.get(action);
+    if (!clipKey) return;
+
+    if (ATTACK_CLIP_KEYS.has(clipKey)) {
+      this.requestReturnToStance = true;
+      const engineKey = AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey;
+      if (engineKey) {
+        this.options.onAttackFinished?.(engineKey);
+      }
+    } else if (clipKey === "block_high" || clipKey === "block_low") {
+      this.requestReturnToStance = true;
+    }
+  };
+
+  update(fighter: Fighter, dtSeconds: number, gameState: GameState) {
+    this.updateTransform(fighter);
+    this.root.rotation.y = getAkaFacingRotationY(fighter.facing);
+
+    if (!this.ready || !this.mixer) {
+      const elapsed = performance.now() * 0.001;
+      this.fallback.position.y = Math.sin(elapsed * 2.4) * 0.02;
+      return;
+    }
+
+    const desiredKey = this.resolveClipKey(fighter);
+    const movementChanged = this.lastMovementState !== fighter.state;
+    const facingChanged = this.lastFacing !== fighter.facing;
+    const shouldForceStance = this.requestReturnToStance && desiredKey === "idle";
+    const attackRestarted =
+      isAttackState(fighter.state) &&
+      fighter.state === this.lastMovementState &&
+      fighter.stateTimer > this.lastStateTimer + 0.5;
+    const comboTransition =
+      isAttackState(fighter.state) &&
+      this.activeKey !== null &&
+      ATTACK_CLIP_KEYS.has(desiredKey) &&
+      ATTACK_CLIP_KEYS.has(this.activeKey) &&
+      (desiredKey !== this.activeKey || attackRestarted);
+    const fadeSeconds = comboTransition ? COMBO_BLEND_SECONDS : DEFAULT_BLEND_SECONDS;
+
+    if (shouldForceStance || desiredKey !== this.activeKey || movementChanged || (desiredKey === "walk" && facingChanged) || attackRestarted) {
+      this.playClip(desiredKey, fighter, fadeSeconds, shouldForceStance || attackRestarted);
+      if (desiredKey === "idle") {
+        this.requestReturnToStance = false;
+      }
+    } else if (this.activeAction && this.activeKey) {
+      this.configureAction(this.activeAction, this.activeKey, fighter, false);
+    }
+
+    this.lastMovementState = fighter.state;
+    this.lastFacing = fighter.facing;
+    this.lastStateTimer = fighter.stateTimer;
+    this.mixer.update(dtSeconds);
+  }
+
+  override dispose() {
+    if (this.mixer) {
+      this.mixer.removeEventListener("finished", this.handleMixerFinished as THREE.EventListener);
+      this.mixer.stopAllAction();
+    }
+    super.dispose();
   }
 }
 
@@ -645,13 +1174,14 @@ export default class ThreeRenderer {
   private readonly camera = new THREE.PerspectiveCamera(45, 16 / 9, 0.1, 100);
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   private readonly clock = new THREE.Clock();
-  private readonly fighterVisuals: Record<"player" | "opponent", FighterVisual>;
+  private readonly fighterVisuals: Record<"player" | "opponent", FighterVisualAdapter>;
   private readonly refereeVisual = new RefereeVisual();
   private readonly pointEffects: ScoreEffect[] = [];
   private readonly burstParticles: BurstParticle[] = [];
   private readonly midpointTarget = new THREE.Vector3(0, LOOK_Y, 0);
   private readonly resizeObserver: ResizeObserver | null;
   private readonly cameraBasePosition = new THREE.Vector3();
+
   private mountNode: HTMLElement | null = null;
   private previousPointState = {
     gameStatus: "menu" as GameState["gameStatus"],
@@ -665,14 +1195,13 @@ export default class ThreeRenderer {
     intensity: 0,
   };
 
-  constructor(options?: { fighterModelUrl?: string | null }) {
+  constructor(options?: ThreeRendererOptions) {
     this.scene.background = new THREE.Color("#e7edf3");
     this.scene.fog = new THREE.Fog("#e7edf3", 16, 32);
 
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // Modern Three.js uses outputColorSpace; keep the legacy property aligned for older integrations.
     (this.renderer as THREE.WebGLRenderer & { outputEncoding?: number }).outputEncoding = 3001;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
@@ -684,23 +1213,22 @@ export default class ThreeRenderer {
     this.setupEnvironment();
 
     this.fighterVisuals = {
-      player: new FighterVisual({
-        bodyColor: "#f9fafb",
-        accentColor: "#d4202a",
-        beltColor: "#d4202a",
-        label: "AKA",
-        depthOffset: 0.62,
-        fighterModelUrl: options?.fighterModelUrl,
+      player: new AkaAnimatedFighterVisual({
+        depthOffset: FIGHTER_LANE_Z,
+        onLoadStateChange: options?.onAkaLoadStateChange,
+        onReady: options?.onAkaReady,
+        onAttackDurationsResolved: options?.onAkaAttackDurationsResolved,
+        onAttackFinished: options?.onAkaAttackAnimationComplete,
       }),
-      opponent: new FighterVisual({
-        bodyColor: "#f9fafb",
+      opponent: new PlaceholderFighterVisual({
+        label: "AO",
         accentColor: "#1f5cd1",
         beltColor: "#1f5cd1",
-        label: "AO",
-        depthOffset: -0.62,
-        fighterModelUrl: options?.fighterModelUrl,
+        bodyColor: "#f9fafb",
+        depthOffset: FIGHTER_LANE_Z,
       }),
     };
+
     this.scene.add(this.fighterVisuals.player.root, this.fighterVisuals.opponent.root, this.refereeVisual.root);
 
     this.resizeObserver =
@@ -709,6 +1237,10 @@ export default class ThreeRenderer {
             this.resize();
           })
         : null;
+  }
+
+  isAkaReady() {
+    return this.fighterVisuals.player.isReady();
   }
 
   private setupLights() {
@@ -937,8 +1469,8 @@ export default class ThreeRenderer {
 
   render(state: GameState, dtSeconds: number) {
     this.trackScoringTransitions(state);
-    this.fighterVisuals.player.update(state.player, dtSeconds);
-    this.fighterVisuals.opponent.update(state.opponent, dtSeconds);
+    this.fighterVisuals.player.update(state.player, dtSeconds, state);
+    this.fighterVisuals.opponent.update(state.opponent, dtSeconds, state);
     this.refereeVisual.update(state, dtSeconds);
     this.updateCamera(state, dtSeconds);
     this.updateTransientEffects(dtSeconds);

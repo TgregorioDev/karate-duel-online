@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getPointGapWinner, getScoreAward } from "@/game/engine";
+import { getPointGapWinner, getScoreAward, isFacingDefender } from "@/game/engine";
 
 describe("kumite scoring", () => {
   it("awards yuko for punches and gyaku-zuki", () => {
@@ -40,5 +40,11 @@ describe("kumite scoring", () => {
     expect(getPointGapWinner(8, 0)).toBe("player");
     expect(getPointGapWinner(4, 12)).toBe("opponent");
     expect(getPointGapWinner(7, 0)).toBeNull();
+  });
+
+  it("requires the attacker to be facing the defender", () => {
+    expect(isFacingDefender({ x: 280, facing: "right" }, { x: 680 })).toBe(true);
+    expect(isFacingDefender({ x: 280, facing: "left" }, { x: 680 })).toBe(false);
+    expect(isFacingDefender({ x: 680, facing: "left" }, { x: 280 })).toBe(true);
   });
 });

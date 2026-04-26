@@ -119,12 +119,13 @@ export function resetPositions(state: GameState) {
   state.hitEffect = null;
 }
 
-const ATTACK_DURATION: Record<string, number> = {
+const DEFAULT_ATTACK_DURATION: Record<"punch" | "kick" | "gyaku-zuki" | "mae-geri", number> = {
   punch: PUNCH_DURATION_FRAMES,
   kick: KICK_DURATION_FRAMES,
   'gyaku-zuki': GYAKU_ZUKI_DURATION_FRAMES,
   'mae-geri': MAE_GERI_DURATION_FRAMES,
 };
+const attackDurations = { ...DEFAULT_ATTACK_DURATION };
 const ATTACK_COSTS: Record<string, number> = {
   punch: PUNCH_COST,
   'gyaku-zuki': GYAKU_ZUKI_COST,
@@ -132,6 +133,23 @@ const ATTACK_COSTS: Record<string, number> = {
   'mae-geri': MAE_GERI_COST,
 };
 const HIT_STUN = HIT_STUN_FRAMES;
+
+export function setAttackAnimationDurations(overrides: Partial<Record<"punch" | "kick" | "gyaku-zuki" | "mae-geri", number>>) {
+  (Object.keys(DEFAULT_ATTACK_DURATION) as Array<keyof typeof DEFAULT_ATTACK_DURATION>).forEach((key) => {
+    const next = overrides[key];
+    if (typeof next === 'number' && Number.isFinite(next) && next > 0) {
+      attackDurations[key] = Math.max(1, Math.round(next));
+    }
+  });
+}
+
+export function resetAttackAnimationDurations() {
+  Object.assign(attackDurations, DEFAULT_ATTACK_DURATION);
+}
+
+export function getAttackDurationFrames(attack: string) {
+  return attackDurations[attack as keyof typeof attackDurations] ?? 12;
+}
 
 // Explosive lunge (tobikomi) — burst forward at the start of each attack.
 // Tuned per technique: jabs are quick darts, gyaku-zuki commits deeper, kicks lunge the most.
@@ -215,6 +233,15 @@ export function getPointGapWinner(playerScore: number, opponentScore: number): '
   return diff > 0 ? 'player' : 'opponent';
 }
 
+export function isFacingDefender(
+  attacker: Pick<Fighter, 'x' | 'facing'>,
+  defender: Pick<Fighter, 'x'>,
+): boolean {
+  const dx = defender.x - attacker.x;
+  if (Math.abs(dx) < 1e-5) return true;
+  return dx > 0 ? attacker.facing === 'right' : attacker.facing === 'left';
+}
+
 export type AICombatMode = 'pressure' | 'bait' | 'evasive' | 'punish';
 
 export function isWhiffRecoveryWindow(
@@ -224,7 +251,7 @@ export function isWhiffRecoveryWindow(
 ): boolean {
   if (!isAttackState(attack)) return false;
   const range = getAttackRange(attack);
-  const duration = ATTACK_DURATION[attack] || 12;
+  const duration = getAttackDurationFrames(attack);
   const hitFrame = Math.floor(duration / 2);
   return stateTimer > 0 && stateTimer < hitFrame && dist > range + 16;
 }
@@ -456,7 +483,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     // If mid-attack but NOT in the cancel window, lock out other actions
     // (but KEEP the buffered input alive so the combo fires when cancel window opens)
     if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
-      const dur = ATTACK_DURATION[fighter.state] || 12;
+      const dur = getAttackDurationFrames(fighter.state);
       const hitFrame = Math.floor(dur / 2);
       if (fighter.stateTimer > hitFrame && fighter.stateTimer <= hitFrame + ATTACK_STARTUP_TELEGRAPH) {
         fighter.telegraphFlash = 2;
@@ -505,7 +532,8 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState) {
     const cost = inCombo ? baseCost * COMBO_STAMINA_BONUS : baseCost;
     if (fighter.stamina >= cost) {
       fighter.state = name;
-      fighter.stateTimer = inCombo ? Math.floor(ATTACK_DURATION[name] * COMBO_SPEED_BONUS) : ATTACK_DURATION[name];
+      const attackDuration = getAttackDurationFrames(name);
+      fighter.stateTimer = inCombo ? Math.floor(attackDuration * COMBO_SPEED_BONUS) : attackDuration;
       fighter.stamina -= cost;
       fighter.velocityX = 0;
       fighter.telegraphFlash = ATTACK_STARTUP_TELEGRAPH;
@@ -588,9 +616,10 @@ function getAttackRange(state: string): number {
 
 function checkAttack(attacker: Fighter, defender: Fighter, attackerLabel: 'player' | 'opponent', state: GameState) {
   if (!isAttackState(attacker.state)) return;
+  if (!isFacingDefender(attacker, defender)) return;
   
   // Only check on the "hit frame" (middle of animation)
-  const duration = ATTACK_DURATION[attacker.state] || 12;
+  const duration = getAttackDurationFrames(attacker.state);
   const hitFrame = Math.floor(duration / 2);
   if (attacker.stateTimer !== hitFrame) return;
 
@@ -778,7 +807,7 @@ export function updateAI(state: GameState) {
     // Mid-attack: only allow chaining a queued combo during the cancel window
     if (isAttackState(opp.state)) {
       // telegraph during startup
-      const dur = ATTACK_DURATION[opp.state] || 12;
+      const dur = getAttackDurationFrames(opp.state);
       const hitFrame = Math.floor(dur / 2);
       if (opp.stateTimer > hitFrame && opp.stateTimer <= hitFrame + ATTACK_STARTUP_TELEGRAPH) {
         opp.telegraphFlash = 2;
@@ -1032,7 +1061,7 @@ function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku
   const cost = chaining ? baseCost * COMBO_STAMINA_BONUS : baseCost;
   if (opp.stamina < cost) return false;
 
-  const baseDuration = ATTACK_DURATION[attack];
+  const baseDuration = getAttackDurationFrames(attack);
   opp.state = attack;
   opp.stateTimer = chaining ? Math.floor(baseDuration * COMBO_SPEED_BONUS) : baseDuration;
   opp.stamina -= cost;

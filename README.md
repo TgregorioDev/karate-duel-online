@@ -1,5 +1,7 @@
 # Karate Duel
 
+> Projeto em desenvolvimento: mecanicas, animacoes, balanceamento e apresentacao visual ainda estao em evolucao.
+
 Jogo de luta 1x1 com renderizacao `Three.js`, inspirado em kumite esportivo, construido com `Vite + React + TypeScript`.
 O foco do projeto esta em um duelo arcade de karate com pontuacao por tecnicas, stamina, parry, combos, juiz em cena e IA adaptativa.
 

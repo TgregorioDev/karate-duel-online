@@ -1,8 +1,16 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 
-import { createInitialState, startBowIn, updateGame } from "@/game/engine";
-import ThreeRenderer from "@/game/ThreeRenderer";
-import { GameState, InputState, STAMINA_MAX } from "@/game/types";
+import { createInitialState, resetAttackAnimationDurations, setAttackAnimationDurations, startBowIn, updateGame } from "@/game/engine";
+import ThreeRenderer, { type ThreeRendererLoadState } from "@/game/ThreeRenderer";
+import {
+  GYAKU_ZUKI_COST,
+  KICK_COST,
+  MAE_GERI_COST,
+  GameState,
+  InputState,
+  PUNCH_COST,
+  STAMINA_MAX,
+} from "@/game/types";
 
 type HudState = {
   playerScore: number;
@@ -13,6 +21,25 @@ type HudState = {
   judgeMessage: string;
   status: GameState["gameStatus"];
   winner: GameState["winner"];
+};
+
+type AttackState = "punch" | "gyaku-zuki" | "kick" | "mae-geri";
+
+const COMBO_CANCEL_COST_MULTIPLIER = 0.8;
+const ATTACK_INPUT_COSTS: Record<AttackState, number> = {
+  punch: PUNCH_COST,
+  "gyaku-zuki": GYAKU_ZUKI_COST,
+  kick: KICK_COST,
+  "mae-geri": MAE_GERI_COST,
+};
+
+const INITIAL_AKA_LOAD_STATE: ThreeRendererLoadState = {
+  ready: false,
+  failed: false,
+  loaded: 0,
+  total: 9,
+  progress: 0,
+  label: "Carregando modelo AKA...",
 };
 
 function makeHudSnapshot(state: GameState): HudState {
@@ -42,9 +69,39 @@ function clearAllInputs(input: InputState) {
   clearTransientInputs(input);
 }
 
+function isAttackState(state: string): state is AttackState {
+  return state === "punch" || state === "gyaku-zuki" || state === "kick" || state === "mae-geri";
+}
+
+function getQueuedAttack(input: InputState): AttackState | null {
+  if (input.maeGeri) return "mae-geri";
+  if (input.kick) return "kick";
+  if (input.gyakuZuki) return "gyaku-zuki";
+  if (input.punch) return "punch";
+  return null;
+}
+
+function primePlayerComboCancel(state: GameState, input: InputState) {
+  if (state.gameStatus !== "fighting") return;
+
+  const queuedAttack = getQueuedAttack(input);
+  if (!queuedAttack) return;
+
+  const player = state.player;
+  if (!isAttackState(player.state) || player.stateTimer <= 1) return;
+
+  const comboCost = ATTACK_INPUT_COSTS[queuedAttack] * COMBO_CANCEL_COST_MULTIPLIER;
+  if (player.stamina < comboCost) return;
+
+  // Open the cancel window immediately so the engine can resolve the buffered follow-up this frame.
+  player.stateTimer = Math.min(player.stateTimer, 1);
+}
+
 export default function KarateGame() {
   const mountRef = useRef<HTMLDivElement>(null);
   const gameStateRef = useRef<GameState>(createInitialState());
+  const akaLoadStateRef = useRef<ThreeRendererLoadState>(INITIAL_AKA_LOAD_STATE);
+  const queuedStartRef = useRef(false);
   const inputRef = useRef<InputState>({
     left: false,
     right: false,
@@ -57,22 +114,59 @@ export default function KarateGame() {
   const animFrameRef = useRef<number>(0);
   const hudRef = useRef<HudState>(makeHudSnapshot(gameStateRef.current));
   const [hudState, setHudState] = useState<HudState>(hudRef.current);
+  const [akaLoadState, setAkaLoadState] = useState<ThreeRendererLoadState>(INITIAL_AKA_LOAD_STATE);
 
   useEffect(() => {
     const mountNode = mountRef.current;
     if (!mountNode) return;
 
-    const threeRenderer = new ThreeRenderer();
+    const commitStart = () => {
+      clearAllInputs(inputRef.current);
+      const fresh = createInitialState();
+      startBowIn(fresh);
+      gameStateRef.current = fresh;
+    };
+
+    const threeRenderer = new ThreeRenderer({
+      onAkaLoadStateChange: (nextState) => {
+        akaLoadStateRef.current = nextState;
+        startTransition(() => {
+          setAkaLoadState(nextState);
+        });
+
+        if (nextState.ready && queuedStartRef.current) {
+          queuedStartRef.current = false;
+          commitStart();
+        }
+      },
+      onAkaReady: () => {
+        akaLoadStateRef.current = { ...akaLoadStateRef.current, ready: true, failed: false, progress: 1 };
+      },
+      onAkaAttackDurationsResolved: (durations) => {
+        setAttackAnimationDurations(durations);
+      },
+      onAkaAttackAnimationComplete: () => {
+        const current = gameStateRef.current;
+        const player = current.player;
+        if (current.gameStatus !== "fighting") return;
+        if (!["punch", "gyaku-zuki", "kick", "mae-geri"].includes(player.state)) return;
+        if (player.stateTimer > 1) return;
+        player.state = "idle";
+        player.stateTimer = 0;
+      },
+    });
     threeRenderer.attach(mountNode);
     threeRenderer.render(gameStateRef.current, 0);
 
     const startGame = () => {
       const current = gameStateRef.current;
       if (current.gameStatus === "menu" || current.gameStatus === "game-over") {
-        clearAllInputs(inputRef.current);
-        const fresh = createInitialState();
-        startBowIn(fresh);
-        gameStateRef.current = fresh;
+        if (!akaLoadStateRef.current.ready) {
+          queuedStartRef.current = true;
+          return;
+        }
+        queuedStartRef.current = false;
+        commitStart();
       }
     };
 
@@ -189,6 +283,7 @@ export default function KarateGame() {
       const dtSeconds = threeRenderer.getDeltaSeconds();
       const dtFrames = Math.min(dtSeconds * 60, 2);
 
+      primePlayerComboCancel(gameStateRef.current, inputRef.current);
       gameStateRef.current = updateGame(gameStateRef.current, inputRef.current, dtFrames);
 
       clearTransientInputs(inputRef.current);
@@ -206,7 +301,9 @@ export default function KarateGame() {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      queuedStartRef.current = false;
       clearAllInputs(inputRef.current);
+      resetAttackAnimationDurations();
       threeRenderer.dispose();
     };
   }, []);
@@ -224,6 +321,8 @@ export default function KarateGame() {
           : null;
   const isMenu = hudState.status === "menu";
   const isStartCeremony = hudState.status === "bow-in";
+  const akaLoadingPercent = Math.round(akaLoadState.progress * 100);
+  const canStartFight = akaLoadState.ready && !akaLoadState.failed;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f6fbff_0%,_#dfe8ef_45%,_#becbd7_100%)] px-4 py-6 text-slate-950">
@@ -271,9 +370,20 @@ export default function KarateGame() {
                   </div>
 
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <div className="rounded-full border border-amber-300/45 bg-amber-300/14 px-5 py-2 text-sm font-black uppercase tracking-[0.3em] text-amber-100">
-                      Pressione Enter para Comecar
-                    </div>
+                    {canStartFight ? (
+                      <div className="rounded-full border border-amber-300/45 bg-amber-300/14 px-5 py-2 text-sm font-black uppercase tracking-[0.3em] text-amber-100">
+                        Pressione Enter para Comecar
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-sky-300/30 bg-sky-300/12 px-5 py-3 text-sm font-black uppercase tracking-[0.24em] text-sky-100">
+                        {akaLoadState.failed ? "Falha ao carregar os clips do AKA" : `${akaLoadState.label} ${akaLoadingPercent}%`}
+                      </div>
+                    )}
+                    {!canStartFight && !akaLoadState.failed ? (
+                      <div className="text-xs uppercase tracking-[0.24em] text-slate-300">
+                        A luta sera liberada quando o modelo e todas as animacoes forem carregados.
+                      </div>
+                    ) : null}
                     <div className="text-xs uppercase tracking-[0.28em] text-slate-300">Pontuacao: Yuko 1, Waza-ari 2, Ippon 3</div>
                   </div>
                 </div>
