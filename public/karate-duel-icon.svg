@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Karate Duel</title>
+  <desc id="desc">Karate fighter silhouette in front of a red moon.</desc>
+  <defs>
+    <radialGradient id="moon" cx="46%" cy="42%" r="56%">
+      <stop offset="0%" stop-color="#ff3b30"/>
+      <stop offset="46%" stop-color="#c8102e"/>
+      <stop offset="75%" stop-color="#69000d"/>
+      <stop offset="100%" stop-color="#210005"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="58%">
+      <stop offset="0%" stop-color="#ff1e1e" stop-opacity="0.58"/>
+      <stop offset="62%" stop-color="#c8102e" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#c8102e" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.9 0 0.2 0 0 0 0 0 0.16 0 0 0 0 0 0.9 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="giEdge" x1="0%" x2="100%">
+      <stop offset="0%" stop-color="#090909"/>
+      <stop offset="50%" stop-color="#1b1b1b"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="#020202"/>
+  <circle cx="256" cy="244" r="194" fill="url(#glow)"/>
+  <circle cx="246" cy="234" r="162" fill="url(#moon)" filter="url(#softGlow)"/>
+
+  <g opacity="0.28" fill="#ff3528">
+    <circle cx="122" cy="104" r="3"/>
+    <circle cx="384" cy="116" r="4"/>
+    <circle cx="428" cy="382" r="3"/>
+    <circle cx="96" cy="364" r="2"/>
+    <path d="M372 88c43 33 58 67 53 109 24-37 16-86-21-127-12-13-24-23-32-30 4 18 2 31 0 48z"/>
+    <path d="M78 244c36-24 77-30 121-18-34-25-79-31-127-16-14 4-27 10-39 17 18 5 31 11 45 17z"/>
+  </g>
+
+  <g fill="url(#giEdge)" stroke="#4a0b10" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M303 151c14-13 34-12 45 1 10 12 8 31-5 43-14 13-34 12-45-1-10-12-8-30 5-43z"/>
+    <path d="M280 206c24-22 54-23 88-5l-32 83c-20-12-39-24-58-36-16-10-19-27 2-42z"/>
+    <path d="M322 282c26 7 49 21 68 43 9 10 7 24-3 33-10 9-24 7-33-3-14-16-31-25-53-30l-25-11 18-45 28 13z"/>
+    <path d="M260 254c-39 11-77 23-116 37-14 5-28-2-33-16-5-13 2-27 15-32 37-15 74-28 113-39 16-5 31 4 35 19 4 14-2 26-14 31z"/>
+    <path d="M144 291c-28 22-57 42-87 60-13 8-29 4-37-8-8-13-4-29 9-37 28-17 55-36 81-57 11-9 28-8 38 4 10 12 8 29-4 38z"/>
+    <path d="M282 250c-11 33-22 67-31 101-5 18-8 36-10 55-2 15-15 26-30 24-15-1-26-15-25-30 2-22 6-44 12-65 10-36 22-71 34-106l50 21z"/>
+    <path d="M233 404c7 20 19 37 35 52 11 10 11 27 1 38-10 11-27 11-38 1-23-21-39-47-48-77l50-14z"/>
+    <path d="M352 208c24 20 48 42 71 66 10 11 9 28-2 38-11 10-28 9-38-2-21-22-43-42-66-61l35-41z"/>
+    <path d="M424 273c18-2 36-4 54-5 15-1 28 11 29 26 1 15-11 28-26 29-19 1-39 3-58 6l1-56z"/>
+  </g>
+
+  <g fill="none" stroke="#c8102e" stroke-width="5" stroke-linecap="round" opacity="0.62">
+    <path d="M300 207c-10 28-21 57-34 87"/>
+    <path d="M329 204c-16 19-29 42-40 67"/>
+    <path d="M221 250c-29 8-58 18-87 30"/>
+    <path d="M205 355c10 7 21 10 34 10"/>
+  </g>
+</svg>

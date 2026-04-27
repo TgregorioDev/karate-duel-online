@@ -9,7 +9,24 @@ import {
   PUNCH_DURATION_FRAMES, KICK_DURATION_FRAMES, GYAKU_ZUKI_DURATION_FRAMES,
   MAE_GERI_DURATION_FRAMES, HIT_STUN_FRAMES, PARRY_DEFENSE_DURATION_FRAMES,
   EXHAUSTED_DURATION_FRAMES,
+  WKF_TOTAL_SIZE_METERS, WKF_COMPETITION_SIZE_METERS, WKF_START_LINE_OFFSET_METERS,
 } from './types';
+
+function worldXToEngineX(worldX: number) {
+  return ((worldX + WKF_TOTAL_SIZE_METERS / 2) / WKF_TOTAL_SIZE_METERS) * CANVAS_WIDTH;
+}
+
+export const MATCH_START_POSITIONS = {
+  player: Math.round(worldXToEngineX(-WKF_START_LINE_OFFSET_METERS)),
+  opponent: Math.round(worldXToEngineX(WKF_START_LINE_OFFSET_METERS)),
+} as const;
+
+export const COMPETITION_AREA_BOUNDS = {
+  left: Math.round(worldXToEngineX(-(WKF_COMPETITION_SIZE_METERS / 2))),
+  right: Math.round(worldXToEngineX(WKF_COMPETITION_SIZE_METERS / 2)),
+} as const;
+
+const JOGAI_HOLD = 45;
 
 export function createFighter(x: number, facing: 'left' | 'right', color: string, accent: string, belt: string): Fighter {
   return {
@@ -39,10 +56,12 @@ export function createInitialState(): GameState {
   resetAIState();
   return {
     // WKF style: AKA wears RED belt+gloves, AO wears BLUE belt+gloves.
-    player: createFighter(280, 'right', '#ffffff', '#d4202a', '#d4202a'),
-    opponent: createFighter(680, 'left', '#ffffff', '#1f5cd1', '#1f5cd1'),
+    player: createFighter(MATCH_START_POSITIONS.player, 'right', '#ffffff', '#d4202a', '#d4202a'),
+    opponent: createFighter(MATCH_START_POSITIONS.opponent, 'left', '#ffffff', '#1f5cd1', '#1f5cd1'),
     timeRemaining: FIGHT_DURATION,
     gameStatus: 'menu',
+    paused: false,
+    finished: false,
     pointScoredBy: null,
     winner: null,
     aiDifficulty: 0.3,
@@ -51,6 +70,8 @@ export function createInitialState(): GameState {
     hitEffect: null,
     judge: { state: 'idle', side: null, timer: 0 },
     ceremonyTimer: 0,
+    areaWarningBy: null,
+    areaWarningTimer: 0,
   };
 }
 
@@ -62,26 +83,23 @@ const WINNER_HOLD = 180;           // frames de cerimônia final apontando o ven
 const POINT_BOW_DURATION = 70;     // frames de reverência mútua após cada ponto, antes do HAJIME
 
 export function startBowIn(state: GameState) {
+  state.paused = false;
+  state.finished = false;
+  resetFighters(state, 'bow', BOW_DURATION);
   state.gameStatus = 'bow-in';
   state.ceremonyTimer = BOW_DURATION + HAJIME_HOLD;
-  state.player.state = 'bow';
-  state.opponent.state = 'bow';
-  state.player.stateTimer = BOW_DURATION;
-  state.opponent.stateTimer = BOW_DURATION;
   state.judge = { state: 'idle', side: null, timer: BOW_DURATION };
   state.judgeMessage = 'REI';
   state.judgeTimer = BOW_DURATION;
 }
 
 export function startBowOut(state: GameState) {
+  state.paused = false;
+  state.finished = false;
   state.gameStatus = 'bow-out';
   // Lutadores retornam aos seus marcos iniciais e se cumprimentam (rei final).
-  resetPositions(state);
+  resetFighters(state, 'bow', BOW_DURATION);
   state.ceremonyTimer = BOW_DURATION + 60;
-  state.player.state = 'bow';
-  state.opponent.state = 'bow';
-  state.player.stateTimer = BOW_DURATION;
-  state.opponent.stateTimer = BOW_DURATION;
   let side: JudgeSide = null;
   if (state.winner === 'player') side = 'aka';
   else if (state.winner === 'opponent') side = 'ao';
@@ -91,13 +109,21 @@ export function startBowOut(state: GameState) {
 }
 
 export function resetPositions(state: GameState) {
+  resetFighters(state);
+}
+
+export function resetFighters(state: GameState, pose: 'idle' | 'bow' = 'idle', poseTimer = 0) {
   resetAIState();
-  state.player.x = 280;
-  state.opponent.x = 680;
-  state.player.state = 'idle';
-  state.opponent.state = 'idle';
-  state.player.stateTimer = 0;
-  state.opponent.stateTimer = 0;
+  state.player.x = MATCH_START_POSITIONS.player;
+  state.opponent.x = MATCH_START_POSITIONS.opponent;
+  state.player.facing = 'right';
+  state.opponent.facing = 'left';
+  state.player.state = pose;
+  state.opponent.state = pose;
+  state.player.stateTimer = poseTimer;
+  state.opponent.stateTimer = poseTimer;
+  state.player.velocityX = 0;
+  state.opponent.velocityX = 0;
   state.player.stamina = STAMINA_MAX;
   state.opponent.stamina = STAMINA_MAX;
   state.player.blockTimer = 0;
@@ -117,6 +143,14 @@ export function resetPositions(state: GameState) {
   state.opponent.exhausted = 0;
   state.opponent.telegraphFlash = 0;
   state.hitEffect = null;
+  state.areaWarningBy = null;
+  state.areaWarningTimer = 0;
+  state.paused = false;
+  state.finished = false;
+}
+
+export function setPaused(state: GameState, paused: boolean) {
+  state.paused = paused;
 }
 
 const DEFAULT_ATTACK_DURATION: Record<"punch" | "kick" | "gyaku-zuki" | "mae-geri", number> = {
@@ -289,11 +323,23 @@ export function getAICombatMode(params: {
 }
 
 function ensureGameStateShape(state: GameState) {
+  if (typeof state.paused !== 'boolean') {
+    state.paused = false;
+  }
+  if (typeof state.finished !== 'boolean') {
+    state.finished = false;
+  }
   if (!state.judge) {
     state.judge = { state: 'idle', side: null, timer: 0 };
   }
   if (typeof state.ceremonyTimer !== 'number') {
     state.ceremonyTimer = 0;
+  }
+  if (state.areaWarningBy === undefined) {
+    state.areaWarningBy = null;
+  }
+  if (typeof state.areaWarningTimer !== 'number') {
+    state.areaWarningTimer = 0;
   }
 }
 
@@ -306,8 +352,47 @@ function crossedTimerThreshold(previous: number, next: number, threshold: number
   return previous > threshold && next <= threshold;
 }
 
+function isAreaWarningMessage(message: string) {
+  return /^JOGAI\b/.test(message);
+}
+
+function clearExpiredAreaWarning(state: GameState) {
+  if (state.areaWarningTimer > 0) return;
+  state.areaWarningBy = null;
+  if (isAreaWarningMessage(state.judgeMessage)) {
+    state.judgeMessage = '';
+    state.judgeTimer = 0;
+  }
+}
+
+function fighterTouchesSafetyArea(fighter: Fighter) {
+  const halfWidth = fighter.width * 0.5;
+  return fighter.x - halfWidth < COMPETITION_AREA_BOUNDS.left
+    || fighter.x + halfWidth > COMPETITION_AREA_BOUNDS.right;
+}
+
+function registerAreaWarning(state: GameState, offender: 'player' | 'opponent') {
+  if (state.gameStatus !== 'fighting' || state.areaWarningTimer > 0) return;
+  state.areaWarningBy = offender;
+  state.areaWarningTimer = JOGAI_HOLD;
+  state.judgeMessage = offender === 'player' ? 'JOGAI AKA' : 'JOGAI AO';
+  state.judgeTimer = JOGAI_HOLD;
+}
+
+function checkAreaBoundaries(state: GameState) {
+  if (state.gameStatus !== 'fighting') return;
+  if (fighterTouchesSafetyArea(state.player)) {
+    registerAreaWarning(state, 'player');
+    return;
+  }
+  if (fighterTouchesSafetyArea(state.opponent)) {
+    registerAreaWarning(state, 'opponent');
+  }
+}
+
 export function updateGame(state: GameState, input: InputState, dt: number): GameState {
   ensureGameStateShape(state);
+  if (state.paused || state.finished) return state;
   // ===== Bow-in ceremony =====
   if (state.gameStatus === 'bow-in') {
     const previousCeremonyTimer = state.ceremonyTimer;
@@ -345,6 +430,7 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
     state.ceremonyTimer = advanceFrameTimer(state.ceremonyTimer, dt);
     if (state.ceremonyTimer <= 0) {
       state.gameStatus = 'game-over';
+      state.finished = true;
     }
     return state;
   }
@@ -353,8 +439,12 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
 
   // Judge timers / paused point ceremony
   state.judge.timer = advanceFrameTimer(state.judge.timer, dt);
+  state.areaWarningTimer = advanceFrameTimer(state.areaWarningTimer, dt);
+  clearExpiredAreaWarning(state);
 
   if (state.gameStatus === 'point-scored') {
+    state.areaWarningBy = null;
+    state.areaWarningTimer = 0;
     state.judgeTimer = advanceFrameTimer(state.judgeTimer, dt);
 
     // Reverência pós-ponto em andamento: avança a cerimônia enquanto a luta fica pausada.
@@ -385,11 +475,7 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
         return state;
       }
 
-      resetPositions(state);
-      state.player.state = 'bow';
-      state.opponent.state = 'bow';
-      state.player.stateTimer = POINT_BOW_DURATION;
-      state.opponent.stateTimer = POINT_BOW_DURATION;
+      resetFighters(state, 'bow', POINT_BOW_DURATION);
       state.ceremonyTimer = POINT_BOW_DURATION;
       state.judge = { state: 'idle', side: null, timer: POINT_BOW_DURATION };
       state.judgeMessage = 'REI';
@@ -427,6 +513,7 @@ export function updateGame(state: GameState, input: InputState, dt: number): Gam
   // Face each other
   state.player.facing = state.player.x < state.opponent.x ? 'right' : 'left';
   state.opponent.facing = state.opponent.x < state.player.x ? 'right' : 'left';
+  checkAreaBoundaries(state);
 
   return state;
 }

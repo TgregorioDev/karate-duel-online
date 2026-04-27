@@ -32,6 +32,10 @@ export function getPreferredAkaSourceClipIndex(animations: ReadonlyArray<ClipLik
   return animations.length - 1;
 }
 
+export function getPreferredSourceClipIndex(animations: ReadonlyArray<ClipLike>) {
+  return getPreferredAkaSourceClipIndex(animations);
+}
+
 export function getPreferredAkaClipIndex(
   clipKey: string,
   animations: ReadonlyArray<ClipLike>,
@@ -66,4 +70,12 @@ export function getPreferredAkaClipIndex(
 
 export function getAkaFacingRotationY(facing: "left" | "right") {
   return facing === "right" ? Math.PI / 2 : -Math.PI / 2;
+}
+
+export function getAoFacingRotationY(facing: "left" | "right") {
+  return facing === "right" ? Math.PI / 2 : -Math.PI / 2;
+}
+
+export function getFighterFacingRotationY(facing: "left" | "right", side: "aka" | "ao") {
+  return side === "aka" ? getAkaFacingRotationY(facing) : getAoFacingRotationY(facing);
 }

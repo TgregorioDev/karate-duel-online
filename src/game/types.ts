@@ -64,6 +64,8 @@ export interface GameState {
   opponent: Fighter;
   timeRemaining: number;
   gameStatus: 'menu' | 'bow-in' | 'fighting' | 'point-scored' | 'bow-out' | 'game-over';
+  paused: boolean;
+  finished: boolean;
   pointScoredBy: 'player' | 'opponent' | null;
   winner: 'player' | 'opponent' | 'draw' | null;
   aiDifficulty: number;
@@ -73,6 +75,8 @@ export interface GameState {
   judge: Judge;
   // Phase timer for bow-in / bow-out ceremonies
   ceremonyTimer: number;
+  areaWarningBy: 'player' | 'opponent' | null;
+  areaWarningTimer: number;
 }
 
 export interface HitEffect {
@@ -97,6 +101,11 @@ export type ScoreCall = 'YUKO' | 'WAZA-ARI' | 'IPPON';
 export const CANVAS_WIDTH = 960;
 export const CANVAS_HEIGHT = 540;
 export const GROUND_Y = 420;
+export const WKF_TOTAL_SIZE_METERS = 12;
+export const WKF_COMPETITION_SIZE_METERS = 8;
+export const WKF_SAFETY_BORDER_METERS = 2;
+export const WKF_START_LINE_OFFSET_METERS = 1.5;
+export const WKF_START_LINE_LENGTH_METERS = 1;
 export const FIGHT_DURATION = 90;
 export const FIGHTER_WIDTH = 75;
 export const FIGHTER_HEIGHT = 150;

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createClipSignature, getAkaFacingRotationY, getPreferredAkaClipIndex, getPreferredAkaSourceClipIndex } from "@/game/akaAnimationUtils";
+import {
+  createClipSignature,
+  getAkaFacingRotationY,
+  getAoFacingRotationY,
+  getPreferredAkaClipIndex,
+  getPreferredAkaSourceClipIndex,
+} from "@/game/akaAnimationUtils";
 
 function makeClip(duration: number, trackNames: string[]) {
   return {
@@ -50,5 +56,10 @@ describe("AKA animation helpers", () => {
   it("rotates the AKA toward the opponent based on X positions", () => {
     expect(getAkaFacingRotationY("right")).toBeCloseTo(Math.PI / 2, 8);
     expect(getAkaFacingRotationY("left")).toBeCloseTo(-Math.PI / 2, 8);
+  });
+
+  it("rotates the AO toward the opponent using the same base rig orientation", () => {
+    expect(getAoFacingRotationY("right")).toBeCloseTo(Math.PI / 2, 8);
+    expect(getAoFacingRotationY("left")).toBeCloseTo(-Math.PI / 2, 8);
   });
 });

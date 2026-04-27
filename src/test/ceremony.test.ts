@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialState, startBowIn, updateGame } from "@/game/engine";
+import { createInitialState, setPaused, startBowIn, startBowOut, updateGame } from "@/game/engine";
 
 function emptyInput() {
   return {
@@ -40,5 +40,30 @@ describe("ceremony timing", () => {
     expect(state.gameStatus).toBe("fighting");
     expect(state.judge.state).toBe("idle");
     expect(state.judgeMessage).toBe("");
+  });
+
+  it("freezes simulation timers while paused", () => {
+    const state = createInitialState();
+    startBowIn(state);
+    setPaused(state, true);
+    const initialCeremonyTimer = state.ceremonyTimer;
+
+    updateGame(state, emptyInput(), 10);
+
+    expect(state.ceremonyTimer).toBe(initialCeremonyTimer);
+    expect(state.paused).toBe(true);
+  });
+
+  it("marks the game as finished when the bow-out ceremony ends", () => {
+    const state = createInitialState();
+    state.winner = "player";
+    startBowOut(state);
+
+    for (let i = 0; i < 80; i += 1) {
+      updateGame(state, emptyInput(), 2);
+    }
+
+    expect(state.gameStatus).toBe("game-over");
+    expect(state.finished).toBe(true);
   });
 });

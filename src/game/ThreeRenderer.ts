@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-import { getAkaFacingRotationY, getPreferredAkaSourceClipIndex } from "@/game/akaAnimationUtils";
+import { getAkaFacingRotationY, getAoFacingRotationY, getPreferredSourceClipIndex } from "@/game/akaAnimationUtils";
 import type { Fighter, FighterState, GameState, ScoreCall } from "@/game/types";
 import {
   CANVAS_WIDTH,
@@ -12,6 +12,10 @@ import {
   PUNCH_DURATION_FRAMES,
   GYAKU_ZUKI_DURATION_FRAMES,
   GROUND_Y,
+  WKF_COMPETITION_SIZE_METERS,
+  WKF_START_LINE_LENGTH_METERS,
+  WKF_START_LINE_OFFSET_METERS,
+  WKF_TOTAL_SIZE_METERS,
 } from "@/game/types";
 
 type ScoreEffect = {
@@ -25,6 +29,8 @@ type BurstParticle = {
   velocity: THREE.Vector3;
   life: number;
 };
+
+type ScoreboardSide = "player" | "opponent";
 
 type MasterSkeletonBinding = {
   rootObject: THREE.Object3D;
@@ -43,20 +49,23 @@ export type ThreeRendererLoadState = {
 };
 
 export type ThreeRendererOptions = {
-  onAkaLoadStateChange?: (state: ThreeRendererLoadState) => void;
-  onAkaReady?: () => void;
+  onLoadStateChange?: (state: ThreeRendererLoadState) => void;
+  onReady?: () => void;
   onAkaAttackDurationsResolved?: (durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>>) => void;
   onAkaAttackAnimationComplete?: (animation: "punch" | "gyaku-zuki" | "kick" | "mae-geri") => void;
 };
+
+type FighterVisualSlot = "player" | "opponent";
 
 type FighterVisualAdapter = {
   root: THREE.Group;
   isReady: () => boolean;
   update: (fighter: Fighter, dtSeconds: number, gameState: GameState) => void;
+  reset: (fighter: Fighter, gameState: GameState) => void;
   dispose: () => void;
 };
 
-type AkaClipKey =
+type FighterClipKey =
   | "bow"
   | "idle"
   | "walk"
@@ -69,7 +78,7 @@ type AkaClipKey =
 
 type AttackActionKey = "kizami_tsuki" | "gyaku_zuki" | "mae_geri" | "mawashi_geri";
 type AttackEngineKey = "punch" | "gyaku-zuki" | "mae-geri" | "kick";
-type AkaClipDefinition = {
+type FighterClipDefinition = {
   actionName: string;
   fileName: string;
   loop: boolean;
@@ -77,18 +86,40 @@ type AkaClipDefinition = {
   targetFrames?: number;
 };
 
-const WORLD_WIDTH = 12;
+type AnimatedFighterVisualOptions = {
+  slot: FighterVisualSlot;
+  label: string;
+  loadLabel: string;
+  accentColor: string;
+  beltColor: string;
+  bodyColor: string;
+  depthOffset: number;
+  assetBase: string;
+  startWorldX: number;
+  getFacingRotationY: (facing: Fighter["facing"]) => number;
+  onLoadStateChange?: (slot: FighterVisualSlot, state: ThreeRendererLoadState) => void;
+  onReady?: (slot: FighterVisualSlot) => void;
+  onAttackDurationsResolved?: (durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>>) => void;
+  onAttackFinished?: (animation: "punch" | "gyaku-zuki" | "kick" | "mae-geri") => void;
+};
+
+const WORLD_WIDTH = WKF_TOTAL_SIZE_METERS;
 const WORLD_HEIGHT_SCALE = 0.02;
 const WORLD_HALF_WIDTH = WORLD_WIDTH / 2;
 const FIGHTER_LANE_Z = 0;
+const COMPETITION_AREA_SIZE = WKF_COMPETITION_SIZE_METERS;
+const COMPETITION_AREA_HALF = COMPETITION_AREA_SIZE / 2;
+const START_LINE_OFFSET = WKF_START_LINE_OFFSET_METERS;
+const START_LINE_LENGTH = WKF_START_LINE_LENGTH_METERS;
 const CAMERA_HEIGHT = 4.6;
 const CAMERA_Z = 7.4;
 const LOOK_Y = 1.65;
 const FIGHTER_TARGET_HEIGHT = 1.8;
 const DEFAULT_BLEND_SECONDS = 0.2;
-const COMBO_BLEND_SECONDS = 0.12;
+const COMBO_BLEND_SECONDS = 0.15;
 const AKA_ASSET_BASE = "/models/fighters/aka/animations";
-const AKA_CLIP_DEFINITIONS: Record<AkaClipKey, AkaClipDefinition> = {
+const AO_ASSET_BASE = "/models/fighters/ao/animations";
+const FIGHTER_CLIP_DEFINITIONS: Record<FighterClipKey, FighterClipDefinition> = {
   bow: {
     actionName: "bow_in",
     fileName: "reference.glb",
@@ -145,16 +176,20 @@ const AKA_CLIP_DEFINITIONS: Record<AkaClipKey, AkaClipDefinition> = {
     targetFrames: PARRY_DEFENSE_DURATION_FRAMES,
   },
 };
-const AKA_CLIP_KEYS = Object.keys(AKA_CLIP_DEFINITIONS) as AkaClipKey[];
-const ATTACK_CLIP_KEY_LIST = AKA_CLIP_KEYS.filter((clipKey) => AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey) as AttackActionKey[];
-const ATTACK_CLIP_KEYS = new Set<AkaClipKey>(ATTACK_CLIP_KEY_LIST);
-const ONE_SHOT_KEYS = new Set<AkaClipKey>(AKA_CLIP_KEYS.filter((clipKey) => AKA_CLIP_DEFINITIONS[clipKey].loop === false));
+const FIGHTER_CLIP_KEYS = Object.keys(FIGHTER_CLIP_DEFINITIONS) as FighterClipKey[];
+const ATTACK_CLIP_KEY_LIST = FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_DEFINITIONS[clipKey].attackEngineKey) as AttackActionKey[];
+const ATTACK_CLIP_KEYS = new Set<FighterClipKey>(ATTACK_CLIP_KEY_LIST);
+const ONE_SHOT_KEYS = new Set<FighterClipKey>(FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_DEFINITIONS[clipKey].loop === false));
 
 const SCORE_COLORS: Record<ScoreCall, string> = {
   YUKO: "#f6f3cf",
   "WAZA-ARI": "#ffd166",
   IPPON: "#ff5d5d",
 };
+const SCOREBOARD_WIDTH = 6.2;
+const SCOREBOARD_HEIGHT = 1.58;
+const SCOREBOARD_CANVAS_WIDTH = 1024;
+const SCOREBOARD_CANVAS_HEIGHT = 360;
 
 function toWorldX(engineX: number) {
   return (engineX / CANVAS_WIDTH) * WORLD_WIDTH - WORLD_HALF_WIDTH;
@@ -162,6 +197,44 @@ function toWorldX(engineX: number) {
 
 function toWorldY(engineY: number) {
   return (GROUND_Y - engineY) * WORLD_HEIGHT_SCALE;
+}
+
+function formatScoreboardTime(timeRemaining: number) {
+  const totalSeconds = Math.max(0, Math.ceil(timeRemaining));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function createEvaNormalMap(size = 128) {
+  const data = new Uint8Array(size * size * 4);
+  let seed = 1337;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0xffffffff;
+  };
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const grain = (random() - 0.5) * 0.34;
+      const waveX = Math.sin(x * 0.28) * 0.18;
+      const waveY = Math.cos(y * 0.24) * 0.18;
+      const nx = THREE.MathUtils.clamp(0.5 + grain + waveX, 0, 1);
+      const ny = THREE.MathUtils.clamp(0.5 - grain + waveY, 0, 1);
+      data[index] = Math.round(nx * 255);
+      data[index + 1] = Math.round(ny * 255);
+      data[index + 2] = 255;
+      data[index + 3] = 255;
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(10, 10);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function drawRoundedRect(
@@ -238,6 +311,260 @@ function createTextSprite(
   sprite.scale.set(options?.scale?.x ?? 3.6, options?.scale?.y ?? 1.8, 1);
   sprite.renderOrder = 20;
   return sprite;
+}
+
+function createBrushedMetalTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#c7ccd2");
+    gradient.addColorStop(0.45, "#6f7882");
+    gradient.addColorStop(1, "#d7dbe0");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < canvas.height; y += 2) {
+      ctx.strokeStyle = y % 4 === 0 ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.16)";
+      ctx.beginPath();
+      ctx.moveTo(0, y + 0.5);
+      ctx.lineTo(canvas.width, y + 0.5);
+      ctx.stroke();
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(4, 1);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+class TournamentScoreboard {
+  readonly root = new THREE.Group();
+
+  private readonly canvas = document.createElement("canvas");
+  private readonly texture: THREE.CanvasTexture;
+  private readonly panelMaterial: THREE.MeshBasicMaterial;
+  private readonly metalTexture = createBrushedMetalTexture();
+  private readonly metalMaterial = new THREE.MeshStandardMaterial({
+    color: "#9aa2aa",
+    metalness: 0.82,
+    roughness: 0.34,
+    map: this.metalTexture,
+  });
+  private readonly darkMaterial = new THREE.MeshStandardMaterial({
+    color: "#11151b",
+    metalness: 0.38,
+    roughness: 0.48,
+  });
+
+  private ctx: CanvasRenderingContext2D | null;
+  private playerPulse = 0;
+  private opponentPulse = 0;
+  private previousPlayerScore = -1;
+  private previousOpponentScore = -1;
+  private previousTimeText = "";
+  private previousJudgeMessage = "";
+
+  constructor() {
+    this.canvas.width = SCOREBOARD_CANVAS_WIDTH;
+    this.canvas.height = SCOREBOARD_CANVAS_HEIGHT;
+    this.ctx = this.canvas.getContext("2d");
+    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture.anisotropy = 4;
+
+    this.panelMaterial = new THREE.MeshBasicMaterial({
+      map: this.texture,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+
+    const backPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(SCOREBOARD_WIDTH + 0.36, SCOREBOARD_HEIGHT + 0.28, 0.16),
+      this.darkMaterial,
+    );
+    backPlate.position.z = -0.07;
+    backPlate.castShadow = true;
+    backPlate.receiveShadow = true;
+
+    const topRail = new THREE.Mesh(new THREE.BoxGeometry(SCOREBOARD_WIDTH + 0.48, 0.12, 0.22), this.metalMaterial);
+    const bottomRail = topRail.clone();
+    topRail.position.set(0, SCOREBOARD_HEIGHT / 2 + 0.1, 0);
+    bottomRail.position.set(0, -SCOREBOARD_HEIGHT / 2 - 0.1, 0);
+
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.13, SCOREBOARD_HEIGHT + 0.24, 0.22), this.metalMaterial);
+    const rightRail = leftRail.clone();
+    leftRail.position.set(-SCOREBOARD_WIDTH / 2 - 0.16, 0, 0);
+    rightRail.position.set(SCOREBOARD_WIDTH / 2 + 0.16, 0, 0);
+
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(SCOREBOARD_WIDTH, SCOREBOARD_HEIGHT), this.panelMaterial);
+    glass.position.z = 0.04;
+
+    const leftPost = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 1.15, 12), this.metalMaterial);
+    const rightPost = leftPost.clone();
+    leftPost.position.set(-SCOREBOARD_WIDTH * 0.36, -SCOREBOARD_HEIGHT / 2 - 0.63, -0.03);
+    rightPost.position.set(SCOREBOARD_WIDTH * 0.36, -SCOREBOARD_HEIGHT / 2 - 0.63, -0.03);
+    leftPost.castShadow = true;
+    rightPost.castShadow = true;
+
+    this.root.add(backPlate, topRail, bottomRail, leftRail, rightRail, glass, leftPost, rightPost);
+    this.root.position.set(0, 4.42, -7.46);
+  }
+
+  triggerScorePulse(side: ScoreboardSide) {
+    if (side === "player") {
+      this.playerPulse = 0.72;
+    } else {
+      this.opponentPulse = 0.72;
+    }
+  }
+
+  update(state: GameState, dtSeconds: number) {
+    this.playerPulse = Math.max(0, this.playerPulse - dtSeconds);
+    this.opponentPulse = Math.max(0, this.opponentPulse - dtSeconds);
+
+    const timeText = formatScoreboardTime(state.timeRemaining);
+    const shouldRedraw =
+      state.player.score !== this.previousPlayerScore ||
+      state.opponent.score !== this.previousOpponentScore ||
+      timeText !== this.previousTimeText ||
+      state.judgeMessage !== this.previousJudgeMessage ||
+      this.playerPulse > 0 ||
+      this.opponentPulse > 0;
+
+    if (!shouldRedraw) return;
+
+    this.draw(state, timeText);
+    this.previousPlayerScore = state.player.score;
+    this.previousOpponentScore = state.opponent.score;
+    this.previousTimeText = timeText;
+    this.previousJudgeMessage = state.judgeMessage;
+  }
+
+  private draw(state: GameState, timeText: string) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const glassGradient = ctx.createLinearGradient(0, 0, 0, height);
+    glassGradient.addColorStop(0, "rgba(34, 42, 52, 0.92)");
+    glassGradient.addColorStop(0.48, "rgba(9, 13, 19, 0.9)");
+    glassGradient.addColorStop(1, "rgba(24, 30, 38, 0.92)");
+    drawRoundedRect(ctx, 18, 18, width - 36, height - 36, 34);
+    ctx.fillStyle = glassGradient;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+    for (let x = 34; x < width - 34; x += 18) {
+      ctx.fillRect(x, 32, 1, height - 64);
+    }
+
+    this.drawScoreBlock("AKA", state.player.score, 58, 116, 254, 172, "#C8102E", this.playerPulse);
+    this.drawScoreBlock("AO", state.opponent.score, 712, 116, 254, 172, "#0055A4", this.opponentPulse);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "900 30px 'Arial Narrow', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(212, 175, 55, 0.9)";
+    ctx.fillText("WORLD KARATE FEDERATION", width / 2, 58);
+
+    ctx.font = "900 122px 'Arial Narrow', 'Segoe UI', sans-serif";
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.78)";
+    ctx.shadowColor = "rgba(255, 255, 255, 0.85)";
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = "#f8fafc";
+    ctx.strokeText(timeText, width / 2, 186);
+    ctx.fillText(timeText, width / 2, 186);
+    ctx.shadowBlur = 0;
+
+    ctx.font = "800 24px 'Arial Narrow', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.68)";
+    ctx.fillText("MATCH TIMER", width / 2, 284);
+
+    if (state.judgeMessage) {
+      ctx.font = "900 24px 'Arial Narrow', 'Segoe UI', sans-serif";
+      ctx.fillStyle = "rgba(255, 214, 102, 0.95)";
+      ctx.fillText(state.judgeMessage.toUpperCase().slice(0, 42), width / 2, 326);
+    }
+
+    this.texture.needsUpdate = true;
+  }
+
+  private drawScoreBlock(
+    label: string,
+    score: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    pulse: number,
+  ) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+
+    const pulseAlpha = Math.min(1, pulse / 0.72);
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18 + pulseAlpha * 32;
+    drawRoundedRect(ctx, x, y, width, height, 24);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 4 + pulseAlpha * 5;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.22 + pulseAlpha * 0.42})`;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "900 28px 'Arial Narrow', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+    ctx.fillText(label, x + width / 2, y + 38);
+
+    ctx.font = "900 110px 'Arial Narrow', 'Segoe UI', sans-serif";
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.68)";
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeText(score.toString(), x + width / 2, y + 112);
+    ctx.fillText(score.toString(), x + width / 2, y + 112);
+    ctx.restore();
+  }
+
+  reset(state: GameState) {
+    this.playerPulse = 0;
+    this.opponentPulse = 0;
+    this.previousPlayerScore = -1;
+    this.previousOpponentScore = -1;
+    this.previousTimeText = "";
+    this.previousJudgeMessage = "";
+    this.update(state, 0);
+  }
+
+  dispose() {
+    this.root.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+      }
+    });
+    this.panelMaterial.dispose();
+    this.texture.dispose();
+    this.metalTexture.dispose();
+    this.metalMaterial.dispose();
+    this.darkMaterial.dispose();
+  }
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -356,14 +683,20 @@ abstract class BaseFighterVisual implements FighterVisualAdapter {
     });
     this.labelAnchor.position.set(0, 3.02, 0);
     this.labelAnchor.add(this.labelSprite);
+    // Fighter name tags are intentionally hidden; the HUD already identifies both sides.
+    this.labelAnchor.visible = false;
     this.root.add(this.labelAnchor);
   }
 
-  protected updateTransform(fighter: Fighter) {
-    this.root.position.x = toWorldX(fighter.x);
+  protected applyWorldTransform(worldX: number, facing: Fighter["facing"]) {
+    this.root.position.x = worldX;
     this.root.position.y = 0;
     this.root.position.z = this.depthOffset;
-    this.root.rotation.y = fighter.facing === "right" ? -Math.PI / 2 : Math.PI / 2;
+    this.root.rotation.y = facing === "right" ? -Math.PI / 2 : Math.PI / 2;
+  }
+
+  protected updateTransform(fighter: Fighter) {
+    this.applyWorldTransform(toWorldX(fighter.x), fighter.facing);
   }
 
   isReady() {
@@ -371,6 +704,10 @@ abstract class BaseFighterVisual implements FighterVisualAdapter {
   }
 
   abstract update(fighter: Fighter, dtSeconds: number, gameState: GameState): void;
+
+  reset(fighter: Fighter) {
+    this.updateTransform(fighter);
+  }
 
   dispose() {
     if (this.labelSprite.material instanceof THREE.SpriteMaterial) {
@@ -386,118 +723,34 @@ abstract class BaseFighterVisual implements FighterVisualAdapter {
   }
 }
 
-class PlaceholderFighterVisual extends BaseFighterVisual {
-  private readonly placeholder = new THREE.Group();
-
-  constructor(options: {
-    label: string;
-    accentColor: string;
-    beltColor: string;
-    bodyColor: string;
-    depthOffset: number;
-  }) {
-    super(options.label, options.accentColor, options.depthOffset);
-
-    const giMaterial = new THREE.MeshStandardMaterial({
-      color: options.bodyColor,
-      roughness: 0.78,
-      metalness: 0.04,
-    });
-    const accentMaterial = new THREE.MeshStandardMaterial({
-      color: options.accentColor,
-      roughness: 0.65,
-      metalness: 0.08,
-      emissive: new THREE.Color(options.accentColor).multiplyScalar(0.06),
-    });
-    const beltMaterial = new THREE.MeshStandardMaterial({
-      color: options.beltColor,
-      roughness: 0.72,
-      metalness: 0.05,
-    });
-    const skinMaterial = new THREE.MeshStandardMaterial({
-      color: "#dcb79c",
-      roughness: 0.9,
-      metalness: 0,
-    });
-
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 1.12, 6, 12), giMaterial);
-    body.position.y = 1.2;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), skinMaterial);
-    head.position.y = 2.15;
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.46), beltMaterial);
-    belt.position.y = 1.14;
-    const gloveLeft = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), accentMaterial);
-    const gloveRight = gloveLeft.clone();
-    gloveLeft.position.set(-0.42, 1.36, 0.1);
-    gloveRight.position.set(0.42, 1.36, 0.1);
-    const footLeft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.36), accentMaterial);
-    const footRight = footLeft.clone();
-    footLeft.position.set(-0.18, 0.08, 0.12);
-    footRight.position.set(0.18, 0.08, 0.12);
-
-    this.placeholder.add(body, head, belt, gloveLeft, gloveRight, footLeft, footRight);
-    applyShadowSetup(this.placeholder);
-    this.root.add(this.placeholder);
-  }
-
-  update(fighter: Fighter, dtSeconds: number) {
-    this.updateTransform(fighter);
-
-    const moving = fighter.state === "walk-forward" || fighter.state === "walk-backward";
-    const bobSpeed = moving ? 8 : 2.4;
-    const bobAmount = moving ? 0.05 : 0.02;
-    const elapsed = performance.now() * 0.001;
-    this.placeholder.position.y = Math.sin(elapsed * bobSpeed) * bobAmount;
-
-    let targetPitch = 0;
-    if (fighter.state === "bow") targetPitch = -0.6;
-    if (fighter.state === "block") targetPitch = 0.18;
-    if (fighter.state === "kick" || fighter.state === "mae-geri") targetPitch = -0.25;
-    if (fighter.state === "hit") targetPitch = 0.35;
-    this.placeholder.rotation.z = THREE.MathUtils.damp(this.placeholder.rotation.z, targetPitch, 10, dtSeconds);
-
-    const attackStretch =
-      fighter.state === "punch" || fighter.state === "gyaku-zuki" || fighter.state === "kick" || fighter.state === "mae-geri"
-        ? 1.1
-        : 1;
-    this.placeholder.scale.x = THREE.MathUtils.damp(this.placeholder.scale.x, attackStretch, 8, dtSeconds);
-  }
-}
-
-class AkaAnimatedFighterVisual extends BaseFighterVisual {
+class AnimatedFighterVisual extends BaseFighterVisual {
   private readonly modelRoot = new THREE.Group();
   private readonly fallback = new THREE.Group();
-  private readonly actions = new Map<AkaClipKey, THREE.AnimationAction>();
-  private readonly actionKeys = new Map<THREE.AnimationAction, AkaClipKey>();
+  private readonly actions = new Map<FighterClipKey, THREE.AnimationAction>();
+  private readonly actionKeys = new Map<THREE.AnimationAction, FighterClipKey>();
   private readonly loadingState: ThreeRendererLoadState = {
     ready: false,
     failed: false,
     loaded: 0,
-    total: AKA_CLIP_KEYS.length,
+    total: FIGHTER_CLIP_KEYS.length,
     progress: 0,
-    label: "Carregando modelo AKA...",
+    label: "",
   };
 
   private mixer: THREE.AnimationMixer | null = null;
   private ready = false;
   private activeAction: THREE.AnimationAction | null = null;
-  private activeKey: AkaClipKey | null = null;
+  private activeKey: FighterClipKey | null = null;
   private lastMovementState: FighterState | null = null;
   private lastFacing: Fighter["facing"] | null = null;
   private lastStateTimer = 0;
   private requestReturnToStance = false;
   private masterBinding: MasterSkeletonBinding | null = null;
+  private initializedTransform = false;
 
-  constructor(
-    private readonly options: {
-      depthOffset: number;
-      onLoadStateChange?: (state: ThreeRendererLoadState) => void;
-      onReady?: () => void;
-      onAttackDurationsResolved?: (durations: Partial<Record<"punch" | "gyaku-zuki" | "kick" | "mae-geri", number>>) => void;
-      onAttackFinished?: (animation: "punch" | "gyaku-zuki" | "kick" | "mae-geri") => void;
-    },
-  ) {
-    super("AKA", "#d4202a", options.depthOffset);
+  constructor(private readonly options: AnimatedFighterVisualOptions) {
+    super(options.label, options.accentColor, options.depthOffset);
+    this.loadingState.label = options.loadLabel;
     this.root.add(this.modelRoot);
     this.root.add(this.fallback);
     this.buildFallback();
@@ -511,23 +764,23 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
 
   private emitLoadState(overrides?: Partial<ThreeRendererLoadState>) {
     Object.assign(this.loadingState, overrides);
-    this.options.onLoadStateChange?.({ ...this.loadingState });
+    this.options.onLoadStateChange?.(this.options.slot, { ...this.loadingState });
   }
 
   private buildFallback() {
     const giMaterial = new THREE.MeshStandardMaterial({
-      color: "#f9fafb",
+      color: this.options.bodyColor,
       roughness: 0.78,
       metalness: 0.04,
     });
     const accentMaterial = new THREE.MeshStandardMaterial({
-      color: "#d4202a",
+      color: this.options.accentColor,
       roughness: 0.65,
       metalness: 0.08,
-      emissive: new THREE.Color("#d4202a").multiplyScalar(0.06),
+      emissive: new THREE.Color(this.options.accentColor).multiplyScalar(0.06),
     });
     const beltMaterial = new THREE.MeshStandardMaterial({
-      color: "#d4202a",
+      color: this.options.beltColor,
       roughness: 0.72,
       metalness: 0.05,
     });
@@ -559,9 +812,9 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
         ready: false,
         failed: false,
         loaded: 0,
-        total: AKA_CLIP_KEYS.length,
+        total: FIGHTER_CLIP_KEYS.length,
         progress: 0,
-        label: "Carregando modelo AKA...",
+        label: this.options.loadLabel,
       });
     };
     manager.onProgress = (_url, loaded, total) => {
@@ -569,7 +822,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
         loaded,
         total,
         progress: total > 0 ? loaded / total : 0,
-        label: `Carregando assets AKA (${loaded}/${total})`,
+        label: `${this.options.loadLabel} (${loaded}/${total})`,
       });
     };
     manager.onError = (url) => {
@@ -582,7 +835,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     const loader = new GLTFLoader(manager);
 
     try {
-      const reference = await loader.loadAsync(`${AKA_ASSET_BASE}/${AKA_CLIP_DEFINITIONS.bow.fileName}`);
+      const reference = await loader.loadAsync(`${this.options.assetBase}/${FIGHTER_CLIP_DEFINITIONS.bow.fileName}`);
 
       const rootMotionTargets = this.collectRootMotionTargets(reference.scene);
       const model = reference.scene;
@@ -598,13 +851,13 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
       const bowClip = this.extractClip(reference.animations, "bow", rootMotionTargets);
       this.registerAction("bow", bowClip);
 
-      const secondaryEntries = (Object.entries(AKA_CLIP_DEFINITIONS) as [AkaClipKey, AkaClipDefinition][])
+      const secondaryEntries = (Object.entries(FIGHTER_CLIP_DEFINITIONS) as [FighterClipKey, FighterClipDefinition][])
         .filter(([clipKey]) => clipKey !== "bow");
 
       const extractedClips = await Promise.all(
         secondaryEntries.map(async ([clipKey, definition]) => {
           let clip: THREE.AnimationClip | null = null;
-          const gltf = await loader.loadAsync(`${AKA_ASSET_BASE}/${definition.fileName}`);
+          const gltf = await loader.loadAsync(`${this.options.assetBase}/${definition.fileName}`);
           try {
             clip = this.extractClip(gltf.animations, clipKey, rootMotionTargets);
             if (clip) {
@@ -633,17 +886,17 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
         failed: false,
         loaded: this.loadingState.total,
         progress: 1,
-        label: "Assets AKA carregados",
+        label: `${this.options.label} pronto`,
       });
-      this.options.onReady?.();
+      this.options.onReady?.(this.options.slot);
       this.playClip("idle", null, 0.01, true);
     } catch (error) {
-      console.error("ThreeRenderer: failed to initialize AKA assets.", error);
+      console.error(`ThreeRenderer: failed to initialize ${this.options.label} assets.`, error);
       this.ready = false;
       this.emitLoadState({
         ready: false,
         failed: true,
-        label: "Falha ao carregar assets AKA",
+        label: `Falha ao carregar assets ${this.options.label}`,
       });
     }
   }
@@ -690,12 +943,12 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
 
   private extractClip(
     animations: THREE.AnimationClip[],
-    clipKey: AkaClipKey,
+    clipKey: FighterClipKey,
     rootMotionTargets: Set<string>,
   ) {
     if (!this.masterBinding) return null;
 
-    const sourceIndex = getPreferredAkaSourceClipIndex(animations);
+    const sourceIndex = getPreferredSourceClipIndex(animations);
     const source = sourceIndex >= 0 ? animations[sourceIndex] : null;
     if (!source) return null;
 
@@ -718,7 +971,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
       );
     }
 
-    return new THREE.AnimationClip(AKA_CLIP_DEFINITIONS[clipKey].actionName, source.duration, filteredTracks);
+    return new THREE.AnimationClip(FIGHTER_CLIP_DEFINITIONS[clipKey].actionName, source.duration, filteredTracks);
   }
 
   private remapTrackToMaster(
@@ -769,7 +1022,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     return clonedTrack;
   }
 
-  private registerAction(clipKey: AkaClipKey, clip: THREE.AnimationClip | null) {
+  private registerAction(clipKey: FighterClipKey, clip: THREE.AnimationClip | null) {
     if (!clip || !this.mixer || !this.masterBinding) return;
 
     const action = this.mixer.clipAction(clip, this.masterBinding.rootObject);
@@ -801,7 +1054,10 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     model.position.y = -scaledBounds.min.y;
   }
 
-  private resolveClipKey(fighter: Fighter) {
+  private resolveClipKey(fighter: Fighter, gameState: GameState): FighterClipKey {
+    if (gameState.gameStatus === "point-scored") {
+      return fighter.state === "bow" ? "bow" : "idle";
+    }
     if (fighter.state === "bow") return "bow";
     if (fighter.state === "walk-forward" || fighter.state === "walk-backward") return "walk";
     if (fighter.state === "punch") return "kizami_tsuki";
@@ -813,12 +1069,12 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     return "idle";
   }
 
-  private getActionTimeScale(clipKey: AkaClipKey, fighter: Fighter, action: THREE.AnimationAction) {
+  private getActionTimeScale(clipKey: FighterClipKey, fighter: Fighter, action: THREE.AnimationAction) {
     if (clipKey === "walk") {
       return fighter.state === "walk-backward" ? -1 : 1;
     }
 
-    const targetFrames = AKA_CLIP_DEFINITIONS[clipKey].targetFrames;
+    const targetFrames = FIGHTER_CLIP_DEFINITIONS[clipKey].targetFrames;
     if (!targetFrames || action.getClip().duration <= 0) return 1;
     return 1;
   }
@@ -830,7 +1086,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     entries.forEach((clipKey) => {
       const action = this.actions.get(clipKey);
       const clipDuration = action?.getClip().duration ?? 0;
-      const engineKey = AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey;
+      const engineKey = FIGHTER_CLIP_DEFINITIONS[clipKey].attackEngineKey;
       if (clipDuration > 0 && engineKey) {
         durations[engineKey] = Math.max(1, Math.round(clipDuration * 60));
       }
@@ -839,7 +1095,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     return durations;
   }
 
-  private configureAction(action: THREE.AnimationAction, clipKey: AkaClipKey, fighter: Fighter | null, reset = false) {
+  private configureAction(action: THREE.AnimationAction, clipKey: FighterClipKey, fighter: Fighter | null, reset = false) {
     const directionTimeScale = fighter ? this.getActionTimeScale(clipKey, fighter, action) : 1;
     if (reset) {
       action.stop();
@@ -852,7 +1108,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     action.paused = false;
   }
 
-  private playClip(clipKey: AkaClipKey, fighter: Fighter | null, fadeSeconds = DEFAULT_BLEND_SECONDS, force = false) {
+  private playClip(clipKey: FighterClipKey, fighter: Fighter | null, fadeSeconds = DEFAULT_BLEND_SECONDS, force = false) {
     const nextAction = this.actions.get(clipKey);
     if (!nextAction) return;
 
@@ -890,7 +1146,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
 
     if (ATTACK_CLIP_KEYS.has(clipKey)) {
       this.requestReturnToStance = true;
-      const engineKey = AKA_CLIP_DEFINITIONS[clipKey].attackEngineKey;
+      const engineKey = FIGHTER_CLIP_DEFINITIONS[clipKey].attackEngineKey;
       if (engineKey) {
         this.options.onAttackFinished?.(engineKey);
       }
@@ -900,8 +1156,22 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
   };
 
   update(fighter: Fighter, dtSeconds: number, gameState: GameState) {
-    this.updateTransform(fighter);
-    this.root.rotation.y = getAkaFacingRotationY(fighter.facing);
+    const targetWorldX =
+      gameState.gameStatus === "point-scored" || gameState.gameStatus === "bow-in"
+        ? this.options.startWorldX
+        : toWorldX(fighter.x);
+
+    if (!this.initializedTransform) {
+      this.applyWorldTransform(targetWorldX, fighter.facing);
+      this.initializedTransform = true;
+    } else if (gameState.gameStatus === "point-scored" || gameState.gameStatus === "bow-in") {
+      this.root.position.x = THREE.MathUtils.damp(this.root.position.x, targetWorldX, 9, dtSeconds);
+      this.root.position.y = 0;
+      this.root.position.z = this.depthOffset;
+    } else {
+      this.applyWorldTransform(targetWorldX, fighter.facing);
+    }
+    this.root.rotation.y = this.options.getFacingRotationY(fighter.facing);
 
     if (!this.ready || !this.mixer) {
       const elapsed = performance.now() * 0.001;
@@ -909,7 +1179,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
       return;
     }
 
-    const desiredKey = this.resolveClipKey(fighter);
+    const desiredKey = this.resolveClipKey(fighter, gameState);
     const movementChanged = this.lastMovementState !== fighter.state;
     const facingChanged = this.lastFacing !== fighter.facing;
     const shouldForceStance = this.requestReturnToStance && desiredKey === "idle";
@@ -940,6 +1210,18 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
     this.mixer.update(dtSeconds);
   }
 
+  override reset(fighter: Fighter, gameState: GameState) {
+    this.requestReturnToStance = false;
+    this.lastMovementState = null;
+    this.lastFacing = null;
+    this.lastStateTimer = 0;
+    this.activeAction = null;
+    this.activeKey = null;
+    this.initializedTransform = false;
+    this.mixer?.stopAllAction();
+    this.update(fighter, 0, gameState);
+  }
+
   override dispose() {
     if (this.mixer) {
       this.mixer.removeEventListener("finished", this.handleMixerFinished as THREE.EventListener);
@@ -949,6 +1231,7 @@ class AkaAnimatedFighterVisual extends BaseFighterVisual {
   }
 }
 
+/* Referee visual temporarily disabled until dedicated animations are available.
 class RefereeVisual {
   readonly root = new THREE.Group();
 
@@ -1168,6 +1451,7 @@ class RefereeVisual {
     });
   }
 }
+*/
 
 export default class ThreeRenderer {
   private readonly scene = new THREE.Scene();
@@ -1175,7 +1459,9 @@ export default class ThreeRenderer {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   private readonly clock = new THREE.Clock();
   private readonly fighterVisuals: Record<"player" | "opponent", FighterVisualAdapter>;
-  private readonly refereeVisual = new RefereeVisual();
+  private readonly fighterLoadStates: Record<FighterVisualSlot, ThreeRendererLoadState>;
+  private readonly tournamentScoreboard = new TournamentScoreboard();
+  // private readonly refereeVisual = new RefereeVisual();
   private readonly pointEffects: ScoreEffect[] = [];
   private readonly burstParticles: BurstParticle[] = [];
   private readonly midpointTarget = new THREE.Vector3(0, LOOK_Y, 0);
@@ -1194,6 +1480,7 @@ export default class ThreeRenderer {
     remaining: 0,
     intensity: 0,
   };
+  private hasEmittedReady = false;
 
   constructor(options?: ThreeRendererOptions) {
     this.scene.background = new THREE.Color("#e7edf3");
@@ -1212,24 +1499,54 @@ export default class ThreeRenderer {
     this.setupLights();
     this.setupEnvironment();
 
+    this.fighterLoadStates = {
+      player: this.createInitialLoadState("Carregando lutador AKA..."),
+      opponent: this.createInitialLoadState("Carregando lutador AO..."),
+    };
+
     this.fighterVisuals = {
-      player: new AkaAnimatedFighterVisual({
+      player: new AnimatedFighterVisual({
+        slot: "player",
+        label: "AKA",
+        loadLabel: "Carregando lutador AKA...",
+        accentColor: "#d4202a",
+        beltColor: "#d4202a",
+        bodyColor: "#f9fafb",
         depthOffset: FIGHTER_LANE_Z,
-        onLoadStateChange: options?.onAkaLoadStateChange,
-        onReady: options?.onAkaReady,
+        assetBase: AKA_ASSET_BASE,
+        startWorldX: -START_LINE_OFFSET,
+        getFacingRotationY: getAkaFacingRotationY,
+        onLoadStateChange: (slot, state) => {
+          this.handleFighterLoadStateChange(slot, state, options);
+        },
+        onReady: (slot) => {
+          this.handleFighterReady(slot, options);
+        },
         onAttackDurationsResolved: options?.onAkaAttackDurationsResolved,
         onAttackFinished: options?.onAkaAttackAnimationComplete,
       }),
-      opponent: new PlaceholderFighterVisual({
+      opponent: new AnimatedFighterVisual({
+        slot: "opponent",
         label: "AO",
+        loadLabel: "Carregando lutador AO...",
         accentColor: "#1f5cd1",
         beltColor: "#1f5cd1",
         bodyColor: "#f9fafb",
         depthOffset: FIGHTER_LANE_Z,
+        assetBase: AO_ASSET_BASE,
+        startWorldX: START_LINE_OFFSET,
+        getFacingRotationY: getAoFacingRotationY,
+        onLoadStateChange: (slot, state) => {
+          this.handleFighterLoadStateChange(slot, state, options);
+        },
+        onReady: (slot) => {
+          this.handleFighterReady(slot, options);
+        },
       }),
     };
 
-    this.scene.add(this.fighterVisuals.player.root, this.fighterVisuals.opponent.root, this.refereeVisual.root);
+    this.scene.add(this.tournamentScoreboard.root, this.fighterVisuals.player.root, this.fighterVisuals.opponent.root);
+    // this.scene.add(this.fighterVisuals.player.root, this.fighterVisuals.opponent.root, this.refereeVisual.root);
 
     this.resizeObserver =
       typeof ResizeObserver !== "undefined"
@@ -1237,10 +1554,77 @@ export default class ThreeRenderer {
             this.resize();
           })
         : null;
+
+    this.emitCombinedLoadState(options);
+  }
+
+  private createInitialLoadState(label: string): ThreeRendererLoadState {
+    return {
+      ready: false,
+      failed: false,
+      loaded: 0,
+      total: FIGHTER_CLIP_KEYS.length,
+      progress: 0,
+      label,
+    };
+  }
+
+  private emitCombinedLoadState(options?: ThreeRendererOptions) {
+    const states = Object.values(this.fighterLoadStates);
+    const loaded = states.reduce((total, state) => total + state.loaded, 0);
+    const total = states.reduce((sum, state) => sum + state.total, 0);
+    const ready = states.every((state) => state.ready);
+    const failed = states.some((state) => state.failed);
+    const firstIncomplete = states.find((state) => !state.ready && !state.failed);
+    const firstFailed = states.find((state) => state.failed);
+    const label = failed
+      ? firstFailed?.label ?? "Falha ao carregar lutadores"
+      : ready
+        ? "Lutadores prontos"
+        : `Carregando lutadores (${loaded}/${total})${firstIncomplete ? ` - ${firstIncomplete.label}` : ""}`;
+
+    options?.onLoadStateChange?.({
+      ready,
+      failed,
+      loaded,
+      total,
+      progress: total > 0 ? loaded / total : 0,
+      label,
+    });
+  }
+
+  private handleFighterLoadStateChange(
+    slot: FighterVisualSlot,
+    state: ThreeRendererLoadState,
+    options?: ThreeRendererOptions,
+  ) {
+    this.fighterLoadStates[slot] = state;
+    this.emitCombinedLoadState(options);
+  }
+
+  private handleFighterReady(slot: FighterVisualSlot, options?: ThreeRendererOptions) {
+    this.fighterLoadStates[slot] = {
+      ...this.fighterLoadStates[slot],
+      ready: true,
+      failed: false,
+      loaded: this.fighterLoadStates[slot].total,
+      progress: 1,
+      label: `${slot === "player" ? "AKA" : "AO"} pronto`,
+    };
+    this.emitCombinedLoadState(options);
+
+    if (!this.hasEmittedReady && Object.values(this.fighterLoadStates).every((state) => state.ready)) {
+      this.hasEmittedReady = true;
+      options?.onReady?.();
+    }
+  }
+
+  isReady() {
+    return Object.values(this.fighterLoadStates).every((state) => state.ready);
   }
 
   isAkaReady() {
-    return this.fighterVisuals.player.isReady();
+    return this.isReady();
   }
 
   private setupLights() {
@@ -1265,42 +1649,70 @@ export default class ThreeRenderer {
   }
 
   private setupEnvironment() {
+    const tatamiNormalMap = createEvaNormalMap();
+    const outerTatamiMaterial = new THREE.MeshStandardMaterial({
+      color: "#C8102E",
+      roughness: 0.88,
+      metalness: 0.02,
+      normalMap: tatamiNormalMap,
+      normalScale: new THREE.Vector2(0.26, 0.26),
+    });
+    const innerTatamiMaterial = new THREE.MeshStandardMaterial({
+      color: "#0055A4",
+      roughness: 0.88,
+      metalness: 0.02,
+      normalMap: tatamiNormalMap.clone(),
+      normalScale: new THREE.Vector2(0.3, 0.3),
+    });
+    innerTatamiMaterial.normalMap?.repeat.set(8, 8);
+
     const outerTatami = new THREE.Mesh(
-      new THREE.BoxGeometry(12, 0.2, 12),
-      new THREE.MeshStandardMaterial({
-        color: "#a2242b",
-        roughness: 0.8,
-        metalness: 0.05,
-      }),
+      new THREE.BoxGeometry(WKF_TOTAL_SIZE_METERS, 0.18, WKF_TOTAL_SIZE_METERS),
+      outerTatamiMaterial,
     );
-    outerTatami.position.y = -0.1;
+    outerTatami.position.y = -0.09;
     outerTatami.receiveShadow = true;
     this.scene.add(outerTatami);
 
     const innerTatami = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 0.12, 8),
-      new THREE.MeshStandardMaterial({
-        color: "#2563a6",
-        roughness: 0.8,
-        metalness: 0.04,
-      }),
+      new THREE.BoxGeometry(COMPETITION_AREA_SIZE, 0.1, COMPETITION_AREA_SIZE),
+      innerTatamiMaterial,
     );
-    innerTatami.position.y = -0.02;
+    innerTatami.position.y = -0.03;
     innerTatami.receiveShadow = true;
     this.scene.add(innerTatami);
 
-    const ringLine = new THREE.Mesh(
-      new THREE.RingGeometry(4.06, 4.14, 64),
-      new THREE.MeshStandardMaterial({
-        color: "#e6eef9",
-        roughness: 0.82,
-        metalness: 0,
-        side: THREE.DoubleSide,
-      }),
-    );
-    ringLine.rotation.x = -Math.PI / 2;
-    ringLine.position.y = 0.01;
-    this.scene.add(ringLine);
+    const createStartLine = (color: string, x: number) => {
+      const lineGroup = new THREE.Group();
+
+      const outline = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.01, START_LINE_LENGTH + 0.06),
+        new THREE.MeshStandardMaterial({
+          color: "#f8fafc",
+          roughness: 0.9,
+          metalness: 0,
+        }),
+      );
+      outline.receiveShadow = true;
+
+      const line = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.012, START_LINE_LENGTH),
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.84,
+          metalness: 0.01,
+        }),
+      );
+      line.position.y = 0.002;
+      line.receiveShadow = true;
+
+      lineGroup.position.set(x, 0.024, 0);
+      lineGroup.add(outline, line);
+      this.scene.add(lineGroup);
+    };
+
+    createStartLine("#C8102E", -START_LINE_OFFSET);
+    createStartLine("#C8102E", START_LINE_OFFSET);
 
     const backWall = new THREE.Mesh(
       new THREE.PlaneGeometry(22, 10),
@@ -1450,6 +1862,7 @@ export default class ThreeRenderer {
       const delta = Math.max(playerDelta, opponentDelta);
       const scoreCall = delta >= 3 ? "IPPON" : delta === 2 ? "WAZA-ARI" : "YUKO";
       this.spawnScoreEffect(scoreCall, playerDelta > 0 ? state.player.x : state.opponent.x);
+      this.tournamentScoreboard.triggerScorePulse(playerDelta > 0 ? "player" : "opponent");
       if (scoreCall === "IPPON") {
         this.triggerCameraShake(0.28, 0.16);
       }
@@ -1467,14 +1880,51 @@ export default class ThreeRenderer {
     };
   }
 
+  private clearTransientEffects() {
+    this.pointEffects.forEach((effect) => {
+      this.scene.remove(effect.sprite);
+      if (effect.sprite.material instanceof THREE.SpriteMaterial) {
+        effect.sprite.material.map?.dispose();
+        effect.sprite.material.dispose();
+      }
+    });
+    this.pointEffects.length = 0;
+
+    this.burstParticles.forEach((particle) => {
+      this.scene.remove(particle.mesh);
+      particle.mesh.geometry.dispose();
+      disposeMaterial(particle.mesh.material);
+    });
+    this.burstParticles.length = 0;
+  }
+
   render(state: GameState, dtSeconds: number) {
     this.trackScoringTransitions(state);
+    this.tournamentScoreboard.update(state, dtSeconds);
     this.fighterVisuals.player.update(state.player, dtSeconds, state);
     this.fighterVisuals.opponent.update(state.opponent, dtSeconds, state);
-    this.refereeVisual.update(state, dtSeconds);
+    // this.refereeVisual.update(state, dtSeconds);
     this.updateCamera(state, dtSeconds);
     this.updateTransientEffects(dtSeconds);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  reset(state: GameState) {
+    this.clearTransientEffects();
+    this.cameraShake.duration = 0;
+    this.cameraShake.remaining = 0;
+    this.cameraShake.intensity = 0;
+    this.fighterVisuals.player.reset(state.player, state);
+    this.fighterVisuals.opponent.reset(state.opponent, state);
+    this.tournamentScoreboard.reset(state);
+    this.previousPointState = {
+      gameStatus: state.gameStatus,
+      playerScore: state.player.score,
+      opponentScore: state.opponent.score,
+      hitTimer: state.hitEffect?.timer ?? 0,
+    };
+    this.clock.getDelta();
+    this.render(state, 0);
   }
 
   resize() {
@@ -1490,19 +1940,9 @@ export default class ThreeRenderer {
     this.resizeObserver?.disconnect();
     this.fighterVisuals.player.dispose();
     this.fighterVisuals.opponent.dispose();
-    this.refereeVisual.dispose();
-    this.pointEffects.forEach((effect) => {
-      this.scene.remove(effect.sprite);
-      if (effect.sprite.material instanceof THREE.SpriteMaterial) {
-        effect.sprite.material.map?.dispose();
-        effect.sprite.material.dispose();
-      }
-    });
-    this.burstParticles.forEach((particle) => {
-      this.scene.remove(particle.mesh);
-      particle.mesh.geometry.dispose();
-      disposeMaterial(particle.mesh.material);
-    });
+    this.tournamentScoreboard.dispose();
+    // this.refereeVisual.dispose();
+    this.clearTransientEffects();
     this.renderer.dispose();
     this.mountNode?.replaceChildren();
   }
