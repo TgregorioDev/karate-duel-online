@@ -122,8 +122,8 @@ const FIGHTER_TARGET_HEIGHT = 1.8;
 const DEFAULT_BLEND_SECONDS = 0.2;
 const COMBO_BLEND_SECONDS = 0.15;
 const DEFENSE_BLEND_SECONDS = 0.06;
-const AKA_ASSET_BASE = "/models/fighters/aka/animations";
-const AO_ASSET_BASE = "/models/fighters/ao/animations";
+const AKA_ASSET_BASE = "models/fighters/aka/animations";
+const AO_ASSET_BASE = "models/fighters/ao/animations";
 const FIGHTER_CLIP_DEFINITIONS: Record<FighterClipKey, FighterClipDefinition> = {
   bow: {
     actionName: "bow_in",
