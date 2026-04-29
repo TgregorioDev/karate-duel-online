@@ -6,6 +6,7 @@ import {
   getAoFacingRotationY,
   getPreferredAkaClipIndex,
   getPreferredAkaSourceClipIndex,
+  getPreferredSourceClipIndex,
 } from "@/game/akaAnimationUtils";
 
 function makeClip(duration: number, trackNames: string[]) {
@@ -51,6 +52,13 @@ describe("AKA animation helpers", () => {
     const uniqueAttack = makeClip(1.166667, ["mixamorigHips.position", "mixamorigRightArm.quaternion"]);
 
     expect(getPreferredAkaSourceClipIndex([duplicatedBase, duplicatedBaseCopy, uniqueAttack])).toBe(2);
+  });
+
+  it("skips the reference clip when animation files include the bow action", () => {
+    const defense = makeClip(1.866667, ["mixamorigHips.position", "mixamorigRightArm.quaternion"]);
+    const reference = makeClip(2.133333, ["mixamorigHips.position", "mixamorigRightArm.quaternion"]);
+
+    expect(getPreferredSourceClipIndex([defense, reference], createClipSignature(reference))).toBe(0);
   });
 
   it("rotates the AKA toward the opponent based on X positions", () => {

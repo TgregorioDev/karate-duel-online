@@ -19,10 +19,21 @@ export function createClipSignature(clip: ClipLike | null | undefined) {
   return `${clip.duration.toFixed(6)}|${trackSignature}`;
 }
 
-export function getPreferredAkaSourceClipIndex(animations: ReadonlyArray<ClipLike>) {
+export function getPreferredAkaSourceClipIndex(
+  animations: ReadonlyArray<ClipLike>,
+  referenceSignature?: string | null,
+) {
   if (animations.length === 0) return -1;
 
   const signatures = animations.map((clip) => createClipSignature(clip));
+  if (referenceSignature) {
+    for (let index = signatures.length - 1; index >= 0; index -= 1) {
+      if (signatures[index] !== referenceSignature) {
+        return index;
+      }
+    }
+  }
+
   for (let index = signatures.length - 1; index >= 0; index -= 1) {
     if (signatures.indexOf(signatures[index] ?? "") === index) {
       return index;
@@ -32,8 +43,11 @@ export function getPreferredAkaSourceClipIndex(animations: ReadonlyArray<ClipLik
   return animations.length - 1;
 }
 
-export function getPreferredSourceClipIndex(animations: ReadonlyArray<ClipLike>) {
-  return getPreferredAkaSourceClipIndex(animations);
+export function getPreferredSourceClipIndex(
+  animations: ReadonlyArray<ClipLike>,
+  referenceSignature?: string | null,
+) {
+  return getPreferredAkaSourceClipIndex(animations, referenceSignature);
 }
 
 export function getPreferredAkaClipIndex(

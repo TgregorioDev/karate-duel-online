@@ -3,25 +3,24 @@ type MoveListPanelProps = {
   onClose: () => void;
 };
 
-const movementEntries = ["A / D ou setas: deslocamento lateral", "C / L: block e parry", "ESC: pausa"];
-
 const attackGroups = [
   {
-    side: "AKA",
+    side: "P1 AKA",
     color: "text-red-200",
-    entries: ["Z: kizami-zuki", "V: gyaku-zuki", "X: mawashi-geri", "B: mae-geri"],
+    entries: ["A / D: deslocamento lateral", "Z: kizami-zuki", "V: gyaku-zuki", "X: mawashi-geri", "B: mae-geri", "C: guarda/parry"],
   },
   {
-    side: "AO",
+    side: "P2 AO",
     color: "text-blue-200",
-    entries: ["J: kizami-zuki", "N: gyaku-zuki", "K: mawashi-geri", "M: mae-geri"],
+    entries: ["Seta esquerda / direita: deslocamento", "I: kizami-zuki", "O: gyaku-zuki", "P: mawashi-geri", "K: mae-geri", "L: guarda/parry"],
   },
 ];
 
 const combos = [
-  "Kizami Z -> Gyaku V para pressao curta",
-  "Mawashi X -> Mae-geri B para variar altura",
-  "Parry C -> Gyaku V para contra-ataque imediato",
+  "P1: Kizami Z -> Gyaku V para pressao curta",
+  "P1: Mawashi X -> Mae-geri B para variar altura",
+  "P2: Kizami I -> Gyaku O para resposta rapida",
+  "P2: Parry L -> Gyaku O para contra-ataque imediato",
 ];
 
 export default function MoveListPanel({ open, onClose }: MoveListPanelProps) {
@@ -45,16 +44,7 @@ export default function MoveListPanel({ open, onClose }: MoveListPanelProps) {
 
       <div className="mt-5 space-y-4">
         <section className="rounded-2xl border border-white/10 bg-white/6 p-4">
-          <div className="text-[10px] font-black uppercase tracking-[0.34em] text-slate-300">Movimento</div>
-          <div className="mt-3 space-y-2 text-sm text-white">
-            {movementEntries.map((entry) => (
-              <div key={entry}>{entry}</div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 bg-white/6 p-4">
-          <div className="text-[10px] font-black uppercase tracking-[0.34em] text-slate-300">Golpes</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.34em] text-slate-300">Controles lado a lado</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {attackGroups.map((group) => (
               <div key={group.side} className="rounded-xl border border-white/10 bg-slate-900/55 p-4">

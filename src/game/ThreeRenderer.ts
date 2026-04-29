@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-import { getAkaFacingRotationY, getAoFacingRotationY, getPreferredSourceClipIndex } from "@/game/akaAnimationUtils";
+import { createClipSignature, getAkaFacingRotationY, getAoFacingRotationY, getPreferredSourceClipIndex } from "@/game/akaAnimationUtils";
 import type { Fighter, FighterState, GameState, ScoreCall } from "@/game/types";
 import {
   CANVAS_WIDTH,
@@ -31,6 +31,10 @@ type BurstParticle = {
 };
 
 type ScoreboardSide = "player" | "opponent";
+type FighterTargetHitboxes = {
+  head?: THREE.Mesh;
+  body?: THREE.Mesh;
+};
 
 type MasterSkeletonBinding = {
   rootObject: THREE.Object3D;
@@ -117,6 +121,7 @@ const LOOK_Y = 1.65;
 const FIGHTER_TARGET_HEIGHT = 1.8;
 const DEFAULT_BLEND_SECONDS = 0.2;
 const COMBO_BLEND_SECONDS = 0.15;
+const DEFENSE_BLEND_SECONDS = 0.06;
 const AKA_ASSET_BASE = "/models/fighters/aka/animations";
 const AO_ASSET_BASE = "/models/fighters/ao/animations";
 const FIGHTER_CLIP_DEFINITIONS: Record<FighterClipKey, FighterClipDefinition> = {
@@ -179,6 +184,7 @@ const FIGHTER_CLIP_DEFINITIONS: Record<FighterClipKey, FighterClipDefinition> = 
 const FIGHTER_CLIP_KEYS = Object.keys(FIGHTER_CLIP_DEFINITIONS) as FighterClipKey[];
 const ATTACK_CLIP_KEY_LIST = FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_DEFINITIONS[clipKey].attackEngineKey) as AttackActionKey[];
 const ATTACK_CLIP_KEYS = new Set<FighterClipKey>(ATTACK_CLIP_KEY_LIST);
+const DEFENSE_CLIP_KEYS = new Set<FighterClipKey>(["block_high", "block_low"]);
 const ONE_SHOT_KEYS = new Set<FighterClipKey>(FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_DEFINITIONS[clipKey].loop === false));
 
 const SCORE_COLORS: Record<ScoreCall, string> = {
@@ -190,6 +196,8 @@ const SCOREBOARD_WIDTH = 6.2;
 const SCOREBOARD_HEIGHT = 1.58;
 const SCOREBOARD_CANVAS_WIDTH = 1024;
 const SCOREBOARD_CANVAS_HEIGHT = 360;
+const HEAD_TARGET_BONE_ALIASES = ["head", "neck"];
+const BODY_TARGET_BONE_ALIASES = ["spine2", "spine02", "chest", "upperchest", "spine1", "spine"];
 
 function toWorldX(engineX: number) {
   return (engineX / CANVAS_WIDTH) * WORLD_WIDTH - WORLD_HALF_WIDTH;
@@ -746,6 +754,8 @@ class AnimatedFighterVisual extends BaseFighterVisual {
   private lastStateTimer = 0;
   private requestReturnToStance = false;
   private masterBinding: MasterSkeletonBinding | null = null;
+  private referenceClipSignature: string | null = null;
+  private readonly targetHitboxes: FighterTargetHitboxes = {};
   private initializedTransform = false;
 
   constructor(private readonly options: AnimatedFighterVisualOptions) {
@@ -844,11 +854,16 @@ class AnimatedFighterVisual extends BaseFighterVisual {
       this.modelRoot.add(model);
       this.fallback.visible = false;
       this.masterBinding = this.createMasterBinding(model);
+      this.attachTargetHitboxes(model);
 
       this.mixer = new THREE.AnimationMixer(model);
       this.mixer.addEventListener("finished", this.handleMixerFinished as THREE.EventListener);
 
-      const bowClip = this.extractClip(reference.animations, "bow", rootMotionTargets);
+      const referenceSourceIndex = getPreferredSourceClipIndex(reference.animations);
+      this.referenceClipSignature = referenceSourceIndex >= 0
+        ? createClipSignature(reference.animations[referenceSourceIndex])
+        : null;
+      const bowClip = this.extractClip(reference.animations, "bow", rootMotionTargets, null);
       this.registerAction("bow", bowClip);
 
       const secondaryEntries = (Object.entries(FIGHTER_CLIP_DEFINITIONS) as [FighterClipKey, FighterClipDefinition][])
@@ -859,7 +874,7 @@ class AnimatedFighterVisual extends BaseFighterVisual {
           let clip: THREE.AnimationClip | null = null;
           const gltf = await loader.loadAsync(`${this.options.assetBase}/${definition.fileName}`);
           try {
-            clip = this.extractClip(gltf.animations, clipKey, rootMotionTargets);
+            clip = this.extractClip(gltf.animations, clipKey, rootMotionTargets, this.referenceClipSignature);
             if (clip) {
               console.log(`Clip extraido do arquivo [${definition.fileName}] e mapeado para a acao [${definition.actionName}] com sucesso.`);
             }
@@ -941,14 +956,85 @@ class AnimatedFighterVisual extends BaseFighterVisual {
     };
   }
 
+  private attachTargetHitboxes(rootObject: THREE.Object3D) {
+    const scale = Math.max(rootObject.scale.x, 0.0001);
+    const toLocal = (value: number) => value / scale;
+    const headBone = this.findBoneByAliases(rootObject, HEAD_TARGET_BONE_ALIASES);
+    const bodyBone = this.findBoneByAliases(rootObject, BODY_TARGET_BONE_ALIASES);
+
+    if (headBone) {
+      const headTarget = this.createInvisibleTargetMesh(
+        "head_target",
+        new THREE.SphereGeometry(toLocal(0.18), 12, 12),
+      );
+      headTarget.position.set(0, toLocal(0.04), 0);
+      headBone.add(headTarget);
+      this.targetHitboxes.head = headTarget;
+      console.log(`[Hitbox] ${this.options.label} head_target vinculado ao osso ${headBone.name}.`);
+    } else {
+      console.warn(`[Hitbox] ${this.options.label} nao encontrou osso Head para head_target.`);
+    }
+
+    if (bodyBone) {
+      const bodyTarget = this.createInvisibleTargetMesh(
+        "body_target",
+        new THREE.BoxGeometry(toLocal(0.52), toLocal(0.74), toLocal(0.32)),
+      );
+      bodyTarget.position.set(0, toLocal(-0.04), 0);
+      bodyBone.add(bodyTarget);
+      this.targetHitboxes.body = bodyTarget;
+      console.log(`[Hitbox] ${this.options.label} body_target vinculado ao osso ${bodyBone.name}.`);
+    } else {
+      console.warn(`[Hitbox] ${this.options.label} nao encontrou osso Chest/Spine2 para body_target.`);
+    }
+  }
+
+  private createInvisibleTargetMesh(name: "head_target" | "body_target", geometry: THREE.BufferGeometry) {
+    const material = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.visible = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.userData = {
+      ...mesh.userData,
+      targetHitbox: true,
+      hitboxName: name,
+    };
+    return mesh;
+  }
+
+  private findBoneByAliases(rootObject: THREE.Object3D, aliases: string[]) {
+    const bones: THREE.Bone[] = [];
+    rootObject.traverse((object) => {
+      if (object instanceof THREE.Bone) {
+        bones.push(object);
+      }
+    });
+
+    const canonicalAliases = aliases.map(canonicalizeBoneName);
+    const exact = bones.find((bone) => canonicalAliases.includes(canonicalizeBoneName(bone.name)));
+    if (exact) return exact;
+
+    return bones.find((bone) => {
+      const canonicalBoneName = canonicalizeBoneName(bone.name);
+      return canonicalAliases.some((alias) => canonicalBoneName.includes(alias));
+    }) ?? null;
+  }
+
   private extractClip(
     animations: THREE.AnimationClip[],
     clipKey: FighterClipKey,
     rootMotionTargets: Set<string>,
+    ignoredSignature: string | null = this.referenceClipSignature,
   ) {
     if (!this.masterBinding) return null;
 
-    const sourceIndex = getPreferredSourceClipIndex(animations);
+    const sourceIndex = getPreferredSourceClipIndex(animations, ignoredSignature);
     const source = sourceIndex >= 0 ? animations[sourceIndex] : null;
     if (!source) return null;
 
@@ -1073,6 +1159,9 @@ class AnimatedFighterVisual extends BaseFighterVisual {
     if (clipKey === "walk") {
       return fighter.state === "walk-backward" ? -1 : 1;
     }
+    if (clipKey === "idle" && fighter.fatigueTimer > 0) {
+      return 0.78;
+    }
 
     const targetFrames = FIGHTER_CLIP_DEFINITIONS[clipKey].targetFrames;
     if (!targetFrames || action.getClip().duration <= 0) return 1;
@@ -1187,16 +1276,24 @@ class AnimatedFighterVisual extends BaseFighterVisual {
       isAttackState(fighter.state) &&
       fighter.state === this.lastMovementState &&
       fighter.stateTimer > this.lastStateTimer + 0.5;
+    const defenseRestarted =
+      (fighter.state === "uchi-uke" || fighter.state === "gedan-barai") &&
+      fighter.state === this.lastMovementState &&
+      fighter.stateTimer > this.lastStateTimer + 0.5;
     const comboTransition =
       isAttackState(fighter.state) &&
       this.activeKey !== null &&
       ATTACK_CLIP_KEYS.has(desiredKey) &&
       ATTACK_CLIP_KEYS.has(this.activeKey) &&
       (desiredKey !== this.activeKey || attackRestarted);
-    const fadeSeconds = comboTransition ? COMBO_BLEND_SECONDS : DEFAULT_BLEND_SECONDS;
+    const fadeSeconds = comboTransition
+      ? COMBO_BLEND_SECONDS
+      : DEFENSE_CLIP_KEYS.has(desiredKey)
+        ? DEFENSE_BLEND_SECONDS
+        : DEFAULT_BLEND_SECONDS;
 
-    if (shouldForceStance || desiredKey !== this.activeKey || movementChanged || (desiredKey === "walk" && facingChanged) || attackRestarted) {
-      this.playClip(desiredKey, fighter, fadeSeconds, shouldForceStance || attackRestarted);
+    if (shouldForceStance || desiredKey !== this.activeKey || movementChanged || (desiredKey === "walk" && facingChanged) || attackRestarted || defenseRestarted) {
+      this.playClip(desiredKey, fighter, fadeSeconds, shouldForceStance || attackRestarted || defenseRestarted);
       if (desiredKey === "idle") {
         this.requestReturnToStance = false;
       }
@@ -1728,7 +1825,11 @@ export default class ThreeRenderer {
   attach(element: HTMLElement) {
     this.mountNode = element;
     this.mountNode.innerHTML = "";
-    this.mountNode.appendChild(this.renderer.domElement);
+    const canvas = this.renderer.domElement;
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    this.mountNode.appendChild(canvas);
     this.resizeObserver?.observe(this.mountNode);
     this.resize();
   }
@@ -1805,7 +1906,7 @@ export default class ThreeRenderer {
   }
 
   private spawnScoreEffect(label: ScoreCall, x: number) {
-    const sprite = createTextSprite(label, SCORE_COLORS[label]);
+    const sprite = createTextSprite(`${label}!`, SCORE_COLORS[label]);
     sprite.position.set(toWorldX(x), 3.2, 0);
     this.scene.add(sprite);
     this.pointEffects.push({
@@ -1929,8 +2030,9 @@ export default class ThreeRenderer {
 
   resize() {
     if (!this.mountNode) return;
-    const width = Math.max(1, this.mountNode.clientWidth);
-    const height = Math.max(1, this.mountNode.clientHeight);
+    const bounds = this.mountNode.getBoundingClientRect();
+    const width = Math.max(1, Math.round(bounds.width || this.mountNode.clientWidth));
+    const height = Math.max(1, Math.round(bounds.height || this.mountNode.clientHeight || width * (9 / 16)));
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);

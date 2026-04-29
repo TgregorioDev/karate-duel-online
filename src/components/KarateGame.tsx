@@ -12,11 +12,15 @@ import {
   startBowIn,
   updateGame,
 } from "@/game/engine";
+import InputManager from "@/game/InputManager";
 import ThreeRenderer, { type ThreeRendererLoadState } from "@/game/ThreeRenderer";
 import {
   GYAKU_ZUKI_COST,
   KICK_COST,
   MAE_GERI_COST,
+  type AIProfile,
+  type Fighter,
+  type GameMode,
   type GameState,
   type InputState,
   PUNCH_COST,
@@ -28,12 +32,18 @@ type HudState = {
   opponentScore: number;
   playerStamina: number;
   opponentStamina: number;
+  playerStaminaFlash: number;
+  opponentStaminaFlash: number;
+  playerFatigueTimer: number;
+  opponentFatigueTimer: number;
   timeRemaining: number;
   judgeMessage: string;
   status: GameState["gameStatus"];
   winner: GameState["winner"];
   paused: boolean;
   finished: boolean;
+  gameMode: GameMode;
+  aiProfile: AIProfile;
 };
 
 type AttackState = "punch" | "gyaku-zuki" | "kick" | "mae-geri";
@@ -61,27 +71,19 @@ function makeHudSnapshot(state: GameState): HudState {
     opponentScore: state.opponent.score,
     playerStamina: state.player.stamina,
     opponentStamina: state.opponent.stamina,
+    playerStaminaFlash: state.player.staminaFlash,
+    opponentStaminaFlash: state.opponent.staminaFlash,
+    playerFatigueTimer: state.player.fatigueTimer,
+    opponentFatigueTimer: state.opponent.fatigueTimer,
     timeRemaining: state.timeRemaining,
     judgeMessage: state.judgeMessage,
     status: state.gameStatus,
     winner: state.winner,
     paused: state.paused,
     finished: state.finished,
+    gameMode: state.gameMode,
+    aiProfile: state.aiProfile,
   };
-}
-
-function clearTransientInputs(input: InputState) {
-  input.punch = false;
-  input.kick = false;
-  input.gyakuZuki = false;
-  input.maeGeri = false;
-}
-
-function clearAllInputs(input: InputState) {
-  input.left = false;
-  input.right = false;
-  input.block = false;
-  clearTransientInputs(input);
 }
 
 function isAttackState(state: string): state is AttackState {
@@ -96,23 +98,21 @@ function getQueuedAttack(input: InputState): AttackState | null {
   return null;
 }
 
-function primePlayerComboCancel(state: GameState, input: InputState) {
-  if (state.gameStatus !== "fighting") return;
-
+function primeComboCancel(fighter: Fighter, input: InputState) {
   const queuedAttack = getQueuedAttack(input);
   if (!queuedAttack) return;
 
-  const player = state.player;
-  if (!isAttackState(player.state) || player.stateTimer <= 1) return;
+  if (fighter.fatigueTimer > 0) return;
+  if (!isAttackState(fighter.state) || fighter.stateTimer <= 1) return;
 
   const comboCost = ATTACK_INPUT_COSTS[queuedAttack] * COMBO_CANCEL_COST_MULTIPLIER;
-  if (player.stamina < comboCost) return;
+  if (fighter.stamina < comboCost) return;
 
-  player.stateTimer = Math.min(player.stateTimer, 1);
+  fighter.stateTimer = Math.min(fighter.stateTimer, 1);
 }
 
-function createMatchState() {
-  const fresh = createInitialState();
+function createMatchState(gameMode: GameMode, aiProfile: AIProfile) {
+  const fresh = createInitialState(gameMode, aiProfile);
   startBowIn(fresh);
   return fresh;
 }
@@ -124,19 +124,15 @@ function KarateGameScene() {
   const gameStateRef = useRef<GameState>(createInitialState());
   const loadStateRef = useRef<ThreeRendererLoadState>(INITIAL_LOAD_STATE);
   const queuedStartRef = useRef(false);
-  const inputRef = useRef<InputState>({
-    left: false,
-    right: false,
-    punch: false,
-    kick: false,
-    gyakuZuki: false,
-    maeGeri: false,
-    block: false,
-  });
+  const queuedGameModeRef = useRef<GameMode>("player-vs-ai");
+  const queuedAIProfileRef = useRef<AIProfile>("dan");
+  const inputManagerRef = useRef(new InputManager());
   const animFrameRef = useRef<number>(0);
   const hudRef = useRef<HudState>(makeHudSnapshot(gameStateRef.current));
   const [hudState, setHudState] = useState<HudState>(hudRef.current);
   const [loadState, setLoadState] = useState<ThreeRendererLoadState>(INITIAL_LOAD_STATE);
+  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("player-vs-ai");
+  const [selectedAIProfile, setSelectedAIProfile] = useState<AIProfile>("dan");
   const [transientJudgeMessage, setTransientJudgeMessage] = useState("");
 
   const syncHud = (state: GameState) => {
@@ -147,12 +143,18 @@ function KarateGameScene() {
       previous.opponentScore !== next.opponentScore ||
       Math.floor(previous.playerStamina) !== Math.floor(next.playerStamina) ||
       Math.floor(previous.opponentStamina) !== Math.floor(next.opponentStamina) ||
+      Math.ceil(previous.playerStaminaFlash) !== Math.ceil(next.playerStaminaFlash) ||
+      Math.ceil(previous.opponentStaminaFlash) !== Math.ceil(next.opponentStaminaFlash) ||
+      Math.ceil(previous.playerFatigueTimer) !== Math.ceil(next.playerFatigueTimer) ||
+      Math.ceil(previous.opponentFatigueTimer) !== Math.ceil(next.opponentFatigueTimer) ||
       Math.ceil(previous.timeRemaining) !== Math.ceil(next.timeRemaining) ||
       previous.judgeMessage !== next.judgeMessage ||
       previous.status !== next.status ||
       previous.winner !== next.winner ||
       previous.paused !== next.paused ||
-      previous.finished !== next.finished;
+      previous.finished !== next.finished ||
+      previous.gameMode !== next.gameMode ||
+      previous.aiProfile !== next.aiProfile;
 
     if (changed) {
       hudRef.current = next;
@@ -179,29 +181,67 @@ function KarateGameScene() {
     }
   };
 
-  const startMatch = () => {
+  const selectGameMode = (mode: GameMode) => {
+    setSelectedGameMode(mode);
+    queuedGameModeRef.current = mode;
+    const current = gameStateRef.current;
+    if (current.gameStatus === "menu") {
+      current.gameMode = mode;
+      syncHud(current);
+    }
+  };
+
+  const selectAIProfile = (profile: AIProfile) => {
+    setSelectedAIProfile(profile);
+    queuedAIProfileRef.current = profile;
+    const current = gameStateRef.current;
+    if (current.gameStatus === "menu") {
+      current.aiProfile = profile;
+      syncHud(current);
+    }
+  };
+
+  const startMatch = (mode: GameMode = queuedGameModeRef.current, aiProfile: AIProfile = queuedAIProfileRef.current) => {
     if (!loadStateRef.current.ready) {
       queuedStartRef.current = true;
+      queuedGameModeRef.current = mode;
+      queuedAIProfileRef.current = aiProfile;
       return;
     }
     queuedStartRef.current = false;
-    clearAllInputs(inputRef.current);
+    queuedGameModeRef.current = mode;
+    queuedAIProfileRef.current = aiProfile;
+    inputManagerRef.current.clearAllInputs();
     closeMoveList();
-    applyGameState(createMatchState(), true);
+    setSelectedGameMode(mode);
+    setSelectedAIProfile(aiProfile);
+    applyGameState(createMatchState(mode, aiProfile), true);
   };
 
   const returnToMenu = () => {
+    const mode = gameStateRef.current.gameMode;
+    const aiProfile = gameStateRef.current.aiProfile;
     queuedStartRef.current = false;
-    clearAllInputs(inputRef.current);
+    queuedGameModeRef.current = mode;
+    queuedAIProfileRef.current = aiProfile;
+    inputManagerRef.current.clearAllInputs();
     closeMoveList();
-    applyGameState(createInitialState(), true);
+    setSelectedGameMode(mode);
+    setSelectedAIProfile(aiProfile);
+    applyGameState(createInitialState(mode, aiProfile), true);
   };
 
   const restartMatch = () => {
+    const mode = gameStateRef.current.gameMode;
+    const aiProfile = gameStateRef.current.aiProfile;
     queuedStartRef.current = false;
-    clearAllInputs(inputRef.current);
+    queuedGameModeRef.current = mode;
+    queuedAIProfileRef.current = aiProfile;
+    inputManagerRef.current.clearAllInputs();
     closeMoveList();
-    applyGameState(createMatchState(), true);
+    setSelectedGameMode(mode);
+    setSelectedAIProfile(aiProfile);
+    applyGameState(createMatchState(mode, aiProfile), true);
   };
 
   const togglePause = () => {
@@ -211,7 +251,7 @@ function KarateGameScene() {
     if (current.paused) {
       closeMoveList();
     } else {
-      clearAllInputs(inputRef.current);
+      inputManagerRef.current.clearAllInputs();
     }
     syncHud(current);
     syncUi(current);
@@ -241,7 +281,7 @@ function KarateGameScene() {
 
         if (nextState.ready && queuedStartRef.current) {
           queuedStartRef.current = false;
-          startMatch();
+          startMatch(queuedGameModeRef.current, queuedAIProfileRef.current);
         }
       },
       onReady: () => {
@@ -286,7 +326,7 @@ function KarateGameScene() {
 
       if ((key === "enter" || key === " ") && current.gameStatus === "menu") {
         e.preventDefault();
-        startMatch();
+        startMatch(queuedGameModeRef.current, queuedAIProfileRef.current);
         return;
       }
 
@@ -294,80 +334,24 @@ function KarateGameScene() {
         return;
       }
 
-      const input = inputRef.current;
-      switch (key) {
-        case "arrowleft":
-        case "a":
-          input.left = true;
-          break;
-        case "arrowright":
-        case "d":
-          input.right = true;
-          break;
-        case "z":
-        case "j":
-          input.punch = true;
-          break;
-        case "x":
-        case "k":
-          input.kick = true;
-          break;
-        case "v":
-        case "n":
-          input.gyakuZuki = true;
-          break;
-        case "b":
-        case "m":
-          input.maeGeri = true;
-          break;
-        case "c":
-        case "l":
-          input.block = true;
-          break;
+      if (inputManagerRef.current.handleKeyDown(e)) {
+        e.preventDefault();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const input = inputRef.current;
-      switch (e.key.toLowerCase()) {
-        case "arrowleft":
-        case "a":
-          input.left = false;
-          break;
-        case "arrowright":
-        case "d":
-          input.right = false;
-          break;
-        case "z":
-        case "j":
-          input.punch = false;
-          break;
-        case "x":
-        case "k":
-          input.kick = false;
-          break;
-        case "v":
-        case "n":
-          input.gyakuZuki = false;
-          break;
-        case "b":
-        case "m":
-          input.maeGeri = false;
-          break;
-        case "c":
-        case "l":
-          input.block = false;
-          break;
+      if (inputManagerRef.current.handleKeyUp(e)) {
+        e.preventDefault();
       }
     };
 
     const handleWindowBlur = () => {
-      clearAllInputs(inputRef.current);
+      inputManagerRef.current.clearAllInputs();
     };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        clearAllInputs(inputRef.current);
+        inputManagerRef.current.clearAllInputs();
       }
     };
 
@@ -385,13 +369,20 @@ function KarateGameScene() {
       const isFrozen = state.paused || state.finished || state.gameStatus === "menu";
       const dtSeconds = isFrozen ? 0 : rawDtSeconds;
       const dtFrames = Math.min(dtSeconds * 60, 2);
+      const playerInput = inputManagerRef.current.getPlayerInput();
+      const opponentInput = inputManagerRef.current.getOpponentInput();
 
       if (!isFrozen) {
-        primePlayerComboCancel(state, inputRef.current);
-        gameStateRef.current = updateGame(state, inputRef.current, dtFrames);
+        if (state.gameStatus === "fighting") {
+          primeComboCancel(state.player, playerInput);
+          if (state.gameMode === "local-1v1") {
+            primeComboCancel(state.opponent, opponentInput);
+          }
+        }
+        gameStateRef.current = updateGame(state, playerInput, dtFrames, opponentInput);
       }
 
-      clearTransientInputs(inputRef.current);
+      inputManagerRef.current.clearTransientInputs();
       syncHud(gameStateRef.current);
       syncUi(gameStateRef.current);
       renderer.render(gameStateRef.current, dtSeconds);
@@ -407,7 +398,7 @@ function KarateGameScene() {
       window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       queuedStartRef.current = false;
-      clearAllInputs(inputRef.current);
+      inputManagerRef.current.clearAllInputs();
       closeMoveList();
       resetAttackAnimationDurations();
       threeRenderer.dispose();
@@ -433,6 +424,8 @@ function KarateGameScene() {
 
   const playerStaminaPercent = Math.max(0, Math.min(100, (hudState.playerStamina / STAMINA_MAX) * 100));
   const opponentStaminaPercent = Math.max(0, Math.min(100, (hudState.opponentStamina / STAMINA_MAX) * 100));
+  const playerStaminaAlert = hudState.playerStaminaFlash > 0 || hudState.playerFatigueTimer > 0;
+  const opponentStaminaAlert = hudState.opponentStaminaFlash > 0 || hudState.opponentFatigueTimer > 0;
   const loadingPercent = Math.round(loadState.progress * 100);
   const canStartFight = loadState.ready && !loadState.failed;
   const statusLabel = hudState.finished ? "results" : hudState.paused ? "pause" : hudState.status;
@@ -459,12 +452,15 @@ function KarateGameScene() {
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 md:p-6">
             <div className="w-full max-w-xs rounded-2xl border border-red-200/45 bg-slate-950/55 p-3 text-white shadow-lg backdrop-blur-md">
               <div className="mb-2 flex items-center justify-between text-sm font-bold uppercase tracking-[0.24em] text-red-100">
-                <span>AKA</span>
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full border border-red-200/45 bg-red-700/70 px-2 py-0.5 text-[10px] tracking-[0.2em] text-white">P1</span>
+                  AKA
+                </span>
                 <span className="text-[10px] tracking-[0.28em] text-white/58">Stamina</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full border border-white/20 bg-slate-950/70 shadow-[inset_0_0_8px_rgba(255,255,255,0.12)]">
+              <div className={`h-2.5 overflow-hidden rounded-full border bg-slate-950/70 shadow-[inset_0_0_8px_rgba(255,255,255,0.12)] ${playerStaminaAlert ? "border-white/70" : "border-white/20"}`}>
                 <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,_#8f0d1f,_#dc2626,_#fecaca)] transition-[width]"
+                  className={`h-full rounded-full transition-[width] duration-300 ease-out ${playerStaminaAlert ? "animate-pulse bg-[linear-gradient(90deg,_#f8fafc,_#9ca3af,_#f8fafc)]" : "bg-[linear-gradient(90deg,_#8f0d1f,_#dc2626,_#fecaca)]"}`}
                   style={{ width: `${playerStaminaPercent}%` }}
                 />
               </div>
@@ -472,12 +468,17 @@ function KarateGameScene() {
 
             <div className="w-full max-w-xs rounded-2xl border border-blue-200/45 bg-slate-950/55 p-3 text-white shadow-lg backdrop-blur-md">
               <div className="mb-2 flex items-center justify-between text-sm font-bold uppercase tracking-[0.24em] text-blue-100">
-                <span>AO</span>
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full border border-blue-200/45 bg-blue-700/70 px-2 py-0.5 text-[10px] tracking-[0.2em] text-white">
+                    {hudState.gameMode === "local-1v1" ? "P2" : "IA"}
+                  </span>
+                  AO
+                </span>
                 <span className="text-[10px] tracking-[0.28em] text-white/58">Stamina</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full border border-white/20 bg-slate-950/70 shadow-[inset_0_0_8px_rgba(255,255,255,0.12)]">
+              <div className={`h-2.5 overflow-hidden rounded-full border bg-slate-950/70 shadow-[inset_0_0_8px_rgba(255,255,255,0.12)] ${opponentStaminaAlert ? "border-white/70" : "border-white/20"}`}>
                 <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,_#083b75,_#2563eb,_#bfdbfe)] transition-[width]"
+                  className={`h-full rounded-full transition-[width] duration-300 ease-out ${opponentStaminaAlert ? "animate-pulse bg-[linear-gradient(90deg,_#f8fafc,_#9ca3af,_#f8fafc)]" : "bg-[linear-gradient(90deg,_#083b75,_#2563eb,_#bfdbfe)]"}`}
                   style={{ width: `${opponentStaminaPercent}%` }}
                 />
               </div>
@@ -495,18 +496,24 @@ function KarateGameScene() {
             </div>
           ) : null}
 
-          <div ref={mountRef} className="aspect-[16/9] w-full bg-transparent" />
+          <div ref={mountRef} className="relative aspect-[16/9] w-full overflow-hidden bg-transparent" />
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-slate-950/55 via-slate-950/15 to-transparent p-4 text-xs font-medium text-white md:flex-row md:items-end md:justify-between md:p-6">
             <div className="max-w-xl rounded-2xl border border-white/10 bg-slate-900/45 px-4 py-3 backdrop-blur">
               <div className="text-[10px] uppercase tracking-[0.32em] text-slate-300">Controles</div>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-slate-100">
-                <span>A / D ou Setas: mover</span>
-                <span>Z: kizami-zuki</span>
-                <span>V: gyaku-zuki</span>
-                <span>X: mawashi-geri</span>
-                <span>B: mae-geri</span>
-                <span>C: block</span>
+                <span>P1: A/D mover</span>
+                <span>Z/V/X/B golpes</span>
+                <span>C guarda</span>
+                {hudState.gameMode === "local-1v1" ? (
+                  <>
+                    <span>P2: setas mover</span>
+                    <span>I/O/P/K golpes</span>
+                    <span>L guarda</span>
+                  </>
+                ) : (
+                  <span>AO controlado pela IA</span>
+                )}
                 <span>ESC: pausa</span>
               </div>
             </div>
@@ -521,10 +528,14 @@ function KarateGameScene() {
 
           <IntroScreen
             open={activeOverlay === "intro"}
+            selectedMode={selectedGameMode}
+            selectedAIProfile={selectedAIProfile}
             canStartFight={canStartFight}
             loadingFailed={loadState.failed}
             loadingLabel={loadState.label}
             loadingPercent={loadingPercent}
+            onSelectMode={selectGameMode}
+            onSelectAIProfile={selectAIProfile}
             onStart={startMatch}
           />
 

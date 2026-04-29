@@ -9,9 +9,15 @@ export interface Fighter {
   facing: 'left' | 'right';
   state: FighterState;
   stateTimer: number;
+  attackTimerMax: number;
+  attackContacted: boolean;
   stamina: number;
+  staminaRegenDelay: number;
+  staminaFlash: number;
+  fatigueTimer: number;
   hitCooldown: number;
   blockTimer: number;
+  guardHeld: boolean;
   color: string;
   accentColor: string;
   beltColor: string;
@@ -43,6 +49,7 @@ export type FighterState =
 
 // Altura do golpe — define qual defesa de parry será disparada
 export type AttackHeight = 'high' | 'low';
+export type HitZone = 'head' | 'body';
 
 // Judge state — referee at the back of the dojo.
 // 'idle'  : standing at attention, hands at sides
@@ -62,6 +69,8 @@ export interface Judge {
 export interface GameState {
   player: Fighter;
   opponent: Fighter;
+  gameMode: GameMode;
+  aiProfile: AIProfile;
   timeRemaining: number;
   gameStatus: 'menu' | 'bow-in' | 'fighting' | 'point-scored' | 'bow-out' | 'game-over';
   paused: boolean;
@@ -84,6 +93,7 @@ export interface HitEffect {
   y: number;
   timer: number;
   type: 'punch' | 'kick';
+  zone?: HitZone;
 }
 
 export interface InputState {
@@ -97,6 +107,8 @@ export interface InputState {
 }
 
 export type ScoreCall = 'YUKO' | 'WAZA-ARI' | 'IPPON';
+export type GameMode = 'player-vs-ai' | 'local-1v1';
+export type AIProfile = 'kyu' | 'dan' | 'sensei';
 
 export const CANVAS_WIDTH = 960;
 export const CANVAS_HEIGHT = 540;
@@ -118,14 +130,15 @@ export const WAZA_ARI_POINTS = 2;
 export const IPPON_POINTS = 3;
 export const VICTORY_POINT_GAP = 8;
 export const STAMINA_MAX = 100;
-export const STAMINA_REGEN_IDLE = 0.9;       // standing still / recovering
-export const STAMINA_REGEN_RETREAT = 0.55;   // backing away
-export const STAMINA_REGEN_ACTIVE = 0;       // walking forward / attacking / blocking — NO regen
-export const BLOCK_DRAIN = 0.35;             // stamina drained per frame while holding block
-export const PUNCH_COST = 18;
-export const KICK_COST = 28;
-export const GYAKU_ZUKI_COST = 24;
-export const MAE_GERI_COST = 26;
+export const STAMINA_REGEN_IDLE = 15 / 60;   // 15 units per second after fatigue delay
+export const STAMINA_REGEN_RETREAT = 15 / 60; // legacy alias for older AI tuning
+export const STAMINA_REGEN_ACTIVE = 0;       // reserved for action states that should not regenerate
+export const BLOCK_DRAIN = 5 / 60;           // guard maintenance, 5 units per second
+export const MOVEMENT_DRAIN = 2 / 60;        // footwork cost, 2 units per second
+export const PUNCH_COST = 10;
+export const KICK_COST = 40;
+export const GYAKU_ZUKI_COST = 15;
+export const MAE_GERI_COST = 25;
 export const PUNCH_DURATION_FRAMES = 12;
 export const KICK_DURATION_FRAMES = 18;
 export const GYAKU_ZUKI_DURATION_FRAMES = 14;
@@ -134,6 +147,6 @@ export const HIT_STUN_FRAMES = 20;
 export const PARRY_DEFENSE_DURATION_FRAMES = 22;
 export const EXHAUSTED_DURATION_FRAMES = 60;
 // Tactical timing windows
-export const PARRY_WINDOW = 4;               // frames at start of block where a perfect parry triggers
-export const PARRY_COUNTER_WINDOW = 25;      // frames after a successful parry to land a guaranteed counter
+export const PARRY_WINDOW = 18;              // startup grace before held guard begins draining stamina
+export const PARRY_COUNTER_WINDOW = 25;      // reserved for the future perfect parry/counter system
 export const ATTACK_STARTUP_TELEGRAPH = 5;   // frames of "wind-up" before the hit frame — opponent can read this

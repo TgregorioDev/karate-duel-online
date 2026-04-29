@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getAICombatMode, isWhiffRecoveryWindow } from "@/game/engine";
+import { createInitialState, getAICombatMode, getAIDistanceZone, getAIProfileConfig, isWhiffRecoveryWindow } from "@/game/engine";
 
 describe("AI combat mode", () => {
   it("detects a whiff punish window when the player recovers out of range", () => {
@@ -84,5 +84,25 @@ describe("AI combat mode", () => {
       playerTelegraphing: false,
       opponentParryWindow: 0,
     })).toBe("pressure");
+  });
+
+  it("classifies maai zones for strategic movement", () => {
+    expect(getAIDistanceZone(150)).toBe("tohma");
+    expect(getAIDistanceZone(110)).toBe("maai");
+    expect(getAIDistanceZone(70)).toBe("chika");
+  });
+
+  it("creates selectable AI profiles with distinct reaction timing", () => {
+    const kyu = getAIProfileConfig("kyu");
+    const dan = getAIProfileConfig("dan");
+    const sensei = getAIProfileConfig("sensei");
+
+    expect(kyu.reactionMinFrames).toBeGreaterThan(dan.reactionMinFrames);
+    expect(dan.blockChance).toBeCloseTo(0.7);
+    expect(sensei.anticipationChance).toBeGreaterThan(dan.anticipationChance);
+
+    const state = createInitialState("player-vs-ai", "sensei");
+    expect(state.aiProfile).toBe("sensei");
+    expect(state.aiDifficulty).toBe(sensei.difficulty);
   });
 });
