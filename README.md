@@ -210,7 +210,7 @@ Para gerar um pacote:
 
 ```powershell
 npm run build
-Compress-Archive -Path dist\* -DestinationPath releases\karate-duel-itch.zip -Force
+Compress-Archive -Path dist\* -DestinationPath releases\karate-duel-itch.zip -CompressionLevel NoCompression -Force
 ```
 
 Arquivo preparado localmente:
