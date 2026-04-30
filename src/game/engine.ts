@@ -260,9 +260,10 @@ const FATIGUE_LOCK_FRAMES = 120;
 const STAMINA_FLASH_FRAMES = 18;
 const FATIGUE_MOVEMENT_MULTIPLIER = 0.6;
 
-// Cancel window: during the LAST N frames of an attack animation (after the hit-frame),
-// a new attack input can cancel the recovery, enabling fluid sequences like kizami → gyaku-zuki.
-const CANCEL_WINDOW = 6;
+// Cancel window: during the last frames of an attack, a new attack input can
+// cut recovery and start a faster follow-up such as kizami -> gyaku-zuki.
+export const COMBO_CANCEL_WINDOW_FRAMES = 6;
+const CANCEL_WINDOW = COMBO_CANCEL_WINDOW_FRAMES;
 const ATTACK_ACTIVE_LEAD_RATIO = 0.08;
 const ATTACK_ACTIVE_LAG_RATIO = 0.18;
 const ATTACK_ACTIVE_MIN_LEAD_FRAMES = 1;
@@ -272,9 +273,8 @@ const ATTACK_ACTIVE_MAX_LAG_FRAMES = 14;
 const GUARD_BLOCK_STAMINA_DRAIN = 5;
 const ENABLE_LEGACY_AI_BRANCHES = false;
 
-// Input buffer: remembers an attack press for N frames so the player can pre-input
-// a combo follow-up during the startup of the previous attack. The buffered attack
-// fires automatically as soon as the cancel window opens.
+// Input buffer: remembers an attack press long enough for follow-ups to fire
+// when the combo cancel window opens.
 const INPUT_BUFFER_FRAMES = 12;
 type BufferedAttack = 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri';
 const inputBuffer: { player: { attack: BufferedAttack | null; frames: number }, opponent: { attack: BufferedAttack | null; frames: number } } = {
@@ -290,11 +290,10 @@ function resetInputBuffers() {
 }
 
 function canStartAttack(fighter: Fighter): boolean {
-  // Free to act when not currently attacking, or when in the cancel window of an ongoing attack
   if (fighter.state === 'hit') return false;
   if (fighter.fatigueTimer > 0) return false;
   if (!isAttackState(fighter.state)) return fighter.stateTimer <= 0;
-  // In an attack: only allow cancel after the hit frame has passed (recovery phase)
+  // During an attack, only recovery can be cancelled into a follow-up.
   return fighter.stateTimer > 0 && fighter.stateTimer <= CANCEL_WINDOW;
 }
 
@@ -785,8 +784,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState, dt
       buffer.attack = null; buffer.frames = 0;
       return;
     }
-    // If mid-attack but NOT in the cancel window, lock out other actions
-    // (but KEEP the buffered input alive so the combo fires when cancel window opens)
+    // If mid-attack but not yet in the cancel window, lock out other actions.
     if (isAttackState(fighter.state) && fighter.stateTimer > CANCEL_WINDOW) {
       const dur = getAttackDurationFrames(fighter.state);
       const hitFrame = Math.floor(dur / 2);
@@ -857,7 +855,7 @@ function updateFighter(fighter: Fighter, input: InputState, state: GameState, dt
     buffer.attack = null; buffer.frames = 0;
   }
 
-  // If we got here while still mid-attack (cancel window with no input), keep playing the attack
+  // If we got here while still mid-attack, keep playing the attack.
   if (isAttackState(fighter.state)) return;
 
   // Movement + stamina regen based on action
@@ -1390,7 +1388,7 @@ export function updateAI(state: GameState, dt = 1) {
       opp.velocityX = 0;
       return;
     }
-    // Mid-attack: only allow chaining a queued combo during the cancel window
+    // Mid-attack: only chain a queued combo during the cancel window.
     if (isAttackState(opp.state)) {
       // telegraph during startup
       const dur = getAttackDurationFrames(opp.state);
@@ -1699,7 +1697,7 @@ export function updateAI(state: GameState, dt = 1) {
 
 function executeAIAttack(opp: Fighter, player: Fighter, attack: 'punch' | 'gyaku-zuki' | 'kick' | 'mae-geri', _diff: number): boolean {
   const baseCost = ATTACK_COSTS[attack];
-  // If chaining out of an attack's cancel window, apply combo discount/speedup
+  // If chaining out of an attack's cancel window, apply combo discount/speedup.
   const chaining = isAttackState(opp.state) && opp.stateTimer <= CANCEL_WINDOW;
   const cost = chaining ? baseCost * COMBO_STAMINA_BONUS : baseCost;
   if (!trySpendStamina(opp, cost)) return false;

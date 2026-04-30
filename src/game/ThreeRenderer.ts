@@ -119,9 +119,10 @@ const CAMERA_HEIGHT = 4.6;
 const CAMERA_Z = 7.4;
 const LOOK_Y = 1.65;
 const FIGHTER_TARGET_HEIGHT = 1.8;
-const DEFAULT_BLEND_SECONDS = 0.2;
-const COMBO_BLEND_SECONDS = 0.15;
-const DEFENSE_BLEND_SECONDS = 0.06;
+const DEFAULT_BLEND_SECONDS = 0.14;
+const ATTACK_BLEND_SECONDS = 0.05;
+const COMBO_BLEND_SECONDS = 0.04;
+const DEFENSE_BLEND_SECONDS = 0.05;
 const AKA_ASSET_BASE = "models/fighters/aka/animations";
 const AO_ASSET_BASE = "models/fighters/ao/animations";
 const FIGHTER_CLIP_DEFINITIONS: Record<FighterClipKey, FighterClipDefinition> = {
@@ -186,6 +187,12 @@ const ATTACK_CLIP_KEY_LIST = FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_
 const ATTACK_CLIP_KEYS = new Set<FighterClipKey>(ATTACK_CLIP_KEY_LIST);
 const DEFENSE_CLIP_KEYS = new Set<FighterClipKey>(["block_high", "block_low"]);
 const ONE_SHOT_KEYS = new Set<FighterClipKey>(FIGHTER_CLIP_KEYS.filter((clipKey) => FIGHTER_CLIP_DEFINITIONS[clipKey].loop === false));
+const ACTION_SPEED_SCALE: Partial<Record<FighterClipKey, number>> = {
+  kizami_tsuki: 1.18,
+  gyaku_zuki: 1.14,
+  mae_geri: 1.12,
+  mawashi_geri: 1.1,
+};
 
 const SCORE_COLORS: Record<ScoreCall, string> = {
   YUKO: "#f6f3cf",
@@ -1163,9 +1170,19 @@ class AnimatedFighterVisual extends BaseFighterVisual {
       return 0.78;
     }
 
+    const clipDurationFrames = action.getClip().duration * 60;
+    if (clipDurationFrames <= 0) return 1;
+
+    if (ATTACK_CLIP_KEYS.has(clipKey) && fighter.attackTimerMax > 0) {
+      return clipDurationFrames / Math.max(1, fighter.attackTimerMax);
+    }
+
     const targetFrames = FIGHTER_CLIP_DEFINITIONS[clipKey].targetFrames;
-    if (!targetFrames || action.getClip().duration <= 0) return 1;
-    return 1;
+    if (targetFrames) {
+      return clipDurationFrames / Math.max(1, targetFrames);
+    }
+
+    return ACTION_SPEED_SCALE[clipKey] ?? 1;
   }
 
   private resolveAttackDurations() {
@@ -1177,7 +1194,8 @@ class AnimatedFighterVisual extends BaseFighterVisual {
       const clipDuration = action?.getClip().duration ?? 0;
       const engineKey = FIGHTER_CLIP_DEFINITIONS[clipKey].attackEngineKey;
       if (clipDuration > 0 && engineKey) {
-        durations[engineKey] = Math.max(1, Math.round(clipDuration * 60));
+        const speedScale = ACTION_SPEED_SCALE[clipKey] ?? 1;
+        durations[engineKey] = Math.max(1, Math.ceil((clipDuration * 60) / speedScale));
       }
     });
 
@@ -1290,7 +1308,9 @@ class AnimatedFighterVisual extends BaseFighterVisual {
       ? COMBO_BLEND_SECONDS
       : DEFENSE_CLIP_KEYS.has(desiredKey)
         ? DEFENSE_BLEND_SECONDS
-        : DEFAULT_BLEND_SECONDS;
+        : ATTACK_CLIP_KEYS.has(desiredKey)
+          ? ATTACK_BLEND_SECONDS
+          : DEFAULT_BLEND_SECONDS;
 
     if (shouldForceStance || desiredKey !== this.activeKey || movementChanged || (desiredKey === "walk" && facingChanged) || attackRestarted || defenseRestarted) {
       this.playClip(desiredKey, fighter, fadeSeconds, shouldForceStance || attackRestarted || defenseRestarted);

@@ -5,6 +5,7 @@ import PauseModal from "@/components/game-ui/PauseModal";
 import ResultModal from "@/components/game-ui/ResultModal";
 import { GameUiProvider, useGameUi } from "@/components/game-ui/GameUiContext";
 import {
+  COMBO_CANCEL_WINDOW_FRAMES,
   createInitialState,
   resetAttackAnimationDurations,
   setAttackAnimationDurations,
@@ -103,12 +104,12 @@ function primeComboCancel(fighter: Fighter, input: InputState) {
   if (!queuedAttack) return;
 
   if (fighter.fatigueTimer > 0) return;
-  if (!isAttackState(fighter.state) || fighter.stateTimer <= 1) return;
+  if (!isAttackState(fighter.state) || fighter.stateTimer <= COMBO_CANCEL_WINDOW_FRAMES) return;
 
   const comboCost = ATTACK_INPUT_COSTS[queuedAttack] * COMBO_CANCEL_COST_MULTIPLIER;
   if (fighter.stamina < comboCost) return;
 
-  fighter.stateTimer = Math.min(fighter.stateTimer, 1);
+  fighter.stateTimer = COMBO_CANCEL_WINDOW_FRAMES;
 }
 
 function createMatchState(gameMode: GameMode, aiProfile: AIProfile) {
